@@ -1,13 +1,16 @@
 {
-  "mediaBase": "https://YOUR-ZONE.b-cdn.net/",
-  "previews": "auto",
+  "mediaBase": "https://unwantedbdaygift.b-cdn.net/",
+  "previews": "hover",
   "playlists": [
     {
       "id": "p1",
       "name": "First playlist",
       "visible": true,
       "videos": [
-        { "src": "sample.mp4", "name": "Sample clip" }
+        {
+          "src": "sample.mp4",
+          "name": "Sample clip"
+        }
       ]
     }
   ]
