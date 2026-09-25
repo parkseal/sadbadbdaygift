@@ -41,6 +41,15 @@
 
   function render(data) {
     var base = data.mediaBase || "";
+
+    if (/YOUR-ZONE/i.test(base) || !base) {
+      grid.className = "blank";
+      grid.innerHTML = '<p>This wall still has its placeholder settings. Open ' +
+        '<a href="admin.html">the admin page</a>, set your Bunny pull zone URL, ' +
+        'add a playlist, and publish.</p>';
+      return;
+    }
+
     mode = data.previews === "hover" ? "hover" : "auto";
 
     var playlists = (data.playlists || [])
@@ -103,6 +112,18 @@
       video.play().catch(noop);
     }
 
+    video.addEventListener("error", function () {
+      button.classList.add("is-broken");
+      var flag = label.querySelector(".cell-flag");
+      if (!flag) {
+        flag = document.createElement("span");
+        flag.className = "cell-flag";
+        label.appendChild(flag);
+      }
+      flag.textContent = "  file not loading";
+      button.title = "Could not load " + video.src;
+    });
+
     var cursor = 0;
     video.addEventListener("ended", function () {
       cursor = (cursor + 1) % playlist.videos.length;
@@ -160,10 +181,17 @@
   function play() {
     if (!queue.length) return close();
     stage.src = queue[index].src;
+    stageLabel.className = "stage-label";
     stageLabel.textContent =
       queue.length > 1 ? queue[index].name + "  \u00b7  " + (index + 1) + " of " + queue.length : "";
     stage.play().catch(noop);
   }
+
+  stage.addEventListener("error", function () {
+    stageLabel.className = "stage-label bad";
+    stageLabel.textContent = "Could not load this file. Check the path in the admin page: " +
+      (queue[index] ? queue[index].src : "");
+  });
 
   stage.addEventListener("ended", function () {
     index += 1;

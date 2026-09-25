@@ -77,6 +77,10 @@ html, body {
   white-space: nowrap;
 }
 
+.cell-flag { color: #d98c7a; font-weight: 400; }
+
+.cell.is-broken { outline: 1px solid #5c3730; outline-offset: -1px; }
+
 .cell-count {
   color: var(--dim);
   font-weight: 400;
@@ -165,6 +169,8 @@ html, body {
 }
 .stage-close:hover { color: var(--text); }
 .stage-close:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+.stage-label.bad { color: #d98c7a; }
 
 .stage-label {
   position: absolute;
