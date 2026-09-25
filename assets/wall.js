@@ -14,6 +14,10 @@
   var index = 0;
   var mode = "auto";
 
+  // Start closed, whatever state the markup or a restored page arrived in.
+  overlay.classList.remove("is-open");
+  overlay.hidden = true;
+
   // Never smaller than 2x2. Past four playlists it grows to 3x2, then 3x3.
   // Leftover slots stay black rather than stretching the cells with content.
   function shape(count) {
@@ -173,6 +177,7 @@
     queue = playlist.videos;
     index = 0;
     overlay.hidden = false;
+    overlay.classList.add("is-open");
     document.documentElement.style.overflow = "hidden";
     previews.forEach(function (v) { v.pause(); });
     play();
@@ -203,6 +208,7 @@
     stage.pause();
     stage.removeAttribute("src");
     stage.load();
+    overlay.classList.remove("is-open");
     overlay.hidden = true;
     document.documentElement.style.overflow = "";
     queue = [];
@@ -214,6 +220,6 @@
   stage.addEventListener("click", function (e) { e.stopPropagation(); });
   closeBtn.addEventListener("click", function (e) { e.stopPropagation(); close(); });
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && !overlay.hidden) close();
+    if (e.key === "Escape" && overlay.classList.contains("is-open")) close();
   });
 })();

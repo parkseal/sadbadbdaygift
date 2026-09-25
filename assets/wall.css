@@ -128,25 +128,26 @@ html, body {
 
 /* ------------------------------------------------------------- overlay */
 
+/* Closed by default. A class selector beats the browser's own [hidden] rule,
+   so display:grid here would pin the overlay on screen no matter what
+   wall.js sets. Visibility is driven by .is-open instead. */
 .overlay {
   position: fixed;
   inset: 0;
   z-index: 10;
-  display: grid;
+  display: none;
   place-items: center;
   background: rgba(8, 9, 11, .94);
   cursor: pointer;
-  animation: fade .16s ease-out;
 }
 
-/* A class selector beats the browser's own [hidden] rule, so display:grid
-   above would keep the overlay on screen. This puts hidden back in charge. */
 .overlay[hidden] { display: none; }
+.overlay.is-open { display: grid; animation: fade .16s ease-out; }
 
 @keyframes fade { from { opacity: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .overlay { animation: none; }
+  .overlay.is-open { animation: none; }
   .cell video { transition: none; }
 }
 
