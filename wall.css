@@ -1,0 +1,200 @@
+:root {
+  --gutter: 3px;
+  --ink: #101215;
+  --cell: #191c21;
+  --edge: #2b3038;
+  --text: #e9eaec;
+  --dim: #9aa1ab;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--ink);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  overflow: hidden;
+}
+
+/* ---------------------------------------------------------------- grid */
+
+.grid {
+  display: grid;
+  gap: var(--gutter);
+  height: 100dvh;
+  width: 100vw;
+  padding: var(--gutter);
+  /* wall.js sets --cols and --rows; never smaller than 2x2 */
+  grid-template-columns: repeat(var(--cols, 2), 1fr);
+  grid-template-rows: repeat(var(--rows, 2), 1fr);
+}
+
+.cell {
+  position: relative;
+  overflow: hidden;
+  background: var(--cell);
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  isolation: isolate;
+}
+
+.cell video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scale(1.001); /* hides sub-pixel edge seams */
+}
+
+.cell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(8,9,11,.72) 0%, rgba(8,9,11,0) 38%);
+  pointer-events: none;
+}
+
+.cell-name {
+  position: absolute;
+  left: 1rem;
+  bottom: .85rem;
+  right: 1rem;
+  z-index: 1;
+  margin: 0;
+  font-size: clamp(.8rem, 1.1vw, 1rem);
+  font-weight: 500;
+  letter-spacing: .005em;
+  line-height: 1.25;
+  text-shadow: 0 1px 3px rgba(0,0,0,.6);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell-flag { color: #d98c7a; font-weight: 400; }
+
+.cell.is-broken { outline: 1px solid #5c3730; outline-offset: -1px; }
+
+.cell-count {
+  color: var(--dim);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.cell:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: -2px;
+}
+
+/* Pointing at one cell dims the rest, so the wall reads as one surface
+   rather than nine separate cards. */
+@media (hover: hover) and (pointer: fine) {
+  .cell video { transition: opacity .2s ease; }
+  .grid:hover .cell video { opacity: .45; }
+  .grid .cell:hover video,
+  .grid .cell:focus-visible video { opacity: 1; }
+}
+
+.cell.is-empty {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--edge);
+  cursor: default;
+}
+.cell.is-empty .cell-name { position: static; color: var(--dim); text-align: center; }
+
+/* Unused slots in the grid: black, inert, no label. */
+.cell.is-blank { background: #000; pointer-events: none; }
+.cell.is-blank::after { content: none; }
+
+/* Empty wall */
+
+.blank {
+  display: grid;
+  place-items: center;
+  height: 100dvh;
+  text-align: center;
+  padding: 2rem;
+}
+.blank p { margin: 0; color: var(--dim); max-width: 34ch; line-height: 1.6; }
+.blank a { color: var(--text); }
+.blank code { color: var(--text); }
+
+/* ------------------------------------------------------------- overlay */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  background: rgba(8, 9, 11, .94);
+  cursor: pointer;
+  animation: fade .16s ease-out;
+}
+
+@keyframes fade { from { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay { animation: none; }
+  .cell video { transition: none; }
+}
+
+.stage {
+  width: 92vw;
+  height: 86dvh;
+  object-fit: contain;
+  background: #000;
+  display: block;
+  cursor: auto;
+}
+
+.stage-close {
+  position: absolute;
+  top: 1.1rem;
+  right: 1.3rem;
+  background: none;
+  border: 0;
+  color: var(--dim);
+  font: inherit;
+  font-size: .85rem;
+  padding: .3rem .4rem;
+  cursor: pointer;
+}
+.stage-close:hover { color: var(--text); }
+.stage-close:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+.stage-label.bad { color: #d98c7a; }
+
+.stage-label {
+  position: absolute;
+  bottom: 1.4dvh;
+  left: 0;
+  right: 0;
+  margin: 0;
+  text-align: center;
+  color: var(--dim);
+  font-size: .82rem;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------- responsive */
+
+@media (max-width: 900px) {
+  html, body { overflow: auto; }
+  .grid {
+    /* Still at least two columns, but rows get their own height and scroll. */
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: none;
+    grid-auto-rows: 30dvh;
+    height: auto;
+    min-height: 100dvh;
+  }
+  .stage { width: 96vw; height: 68dvh; }
+}
