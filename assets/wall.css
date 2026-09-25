@@ -1,5 +1,6 @@
 :root {
   --gutter: 3px;
+  --frame: max(30px, 3vw);   /* black margin around the whole wall */
   --ink: #101215;
   --cell: #191c21;
   --edge: #2b3038;
@@ -25,7 +26,7 @@ html, body {
   gap: var(--gutter);
   height: 100dvh;
   width: 100vw;
-  padding: var(--gutter);
+  padding: var(--frame);
   /* wall.js sets --cols and --rows; never smaller than 2x2 */
   grid-template-columns: repeat(var(--cols, 2), 1fr);
   grid-template-rows: repeat(var(--rows, 2), 1fr);

@@ -2,6 +2,8 @@
   "use strict";
 
   var MAX_CELLS = 9;
+  var HOVER_DELAY = 5000;   // ms of steady hover before a cell wakes up
+  var HOVER_VOLUME = 0.12;  // quiet, not silent
 
   var grid = document.getElementById("grid");
   var overlay = document.getElementById("overlay");
@@ -98,23 +100,55 @@
     video.src = playlist.videos[0].src;
     if (playlist.poster) video.poster = playlist.poster;
     video.muted = true;
+    video.volume = HOVER_VOLUME;
     video.loop = playlist.videos.length === 1;
     video.playsInline = true;
     video.setAttribute("aria-hidden", "true");
 
-    // In hover mode nothing downloads until the pointer lands on the cell,
+    // In hover mode nothing downloads until the pointer has rested on the cell,
     // which keeps CDN bandwidth down on a wall that is mostly idle.
     if (mode === "hover") {
       video.preload = "none";
-      button.addEventListener("mouseenter", function () { video.play().catch(noop); });
-      button.addEventListener("mouseleave", function () { video.pause(); });
-      button.addEventListener("focus", function () { video.play().catch(noop); });
-      button.addEventListener("blur", function () { video.pause(); });
     } else {
       video.preload = "metadata";
       video.autoplay = true;
       video.play().catch(noop);
     }
+
+    // Hovering arms a timer rather than acting at once, so sweeping the pointer
+    // across the wall wakes nothing. After the delay the cell plays with sound.
+    var timer = null;
+
+    function wake() {
+      timer = null;
+      if (overlay.classList.contains("is-open")) return;
+      hush();                       // only one cell is ever audible
+      video.volume = HOVER_VOLUME;
+      video.muted = false;
+      video.play().catch(function () {
+        // Browsers refuse unmuted playback without a user gesture; take the
+        // picture without the sound rather than nothing at all.
+        video.muted = true;
+        video.play().catch(noop);
+      });
+    }
+
+    function hoverIn() {
+      if (timer) return;
+      timer = setTimeout(wake, HOVER_DELAY);
+    }
+
+    function hoverOut() {
+      clearTimeout(timer);
+      timer = null;
+      video.muted = true;
+      if (mode === "hover") video.pause();
+    }
+
+    button.addEventListener("mouseenter", hoverIn);
+    button.addEventListener("mouseleave", hoverOut);
+    button.addEventListener("focus", hoverIn);
+    button.addEventListener("blur", hoverOut);
 
     video.addEventListener("error", function () {
       button.classList.add("is-broken");
@@ -171,6 +205,10 @@
 
   function noop() {}
 
+  function hush() {
+    previews.forEach(function (v) { v.muted = true; });
+  }
+
   // ------------------------------------------------------------- overlay
 
   function open(playlist) {
@@ -179,6 +217,7 @@
     overlay.hidden = false;
     overlay.classList.add("is-open");
     document.documentElement.style.overflow = "hidden";
+    hush();
     previews.forEach(function (v) { v.pause(); });
     play();
   }
