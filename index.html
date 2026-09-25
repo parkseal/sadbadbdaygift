@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wall</title>
+<link rel="stylesheet" href="assets/wall.css">
+</head>
+<body>
+
+<main id="grid" class="grid" aria-label="Playlists"></main>
+
+<div id="overlay" class="overlay" hidden role="dialog" aria-modal="true" aria-label="Now playing">
+  <video id="stage" class="stage" playsinline controls preload="metadata"></video>
+  <p id="stage-label" class="stage-label"></p>
+  <button id="stage-close" class="stage-close" type="button" aria-label="Close">Close</button>
+</div>
+
+<script src="assets/wall.js"></script>
+</body>
+</html>

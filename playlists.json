@@ -1,0 +1,14 @@
+{
+  "mediaBase": "https://YOUR-ZONE.b-cdn.net/",
+  "previews": "auto",
+  "playlists": [
+    {
+      "id": "p1",
+      "name": "First playlist",
+      "visible": true,
+      "videos": [
+        { "src": "sample.mp4", "name": "Sample clip" }
+      ]
+    }
+  ]
+}
