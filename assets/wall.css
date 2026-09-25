@@ -139,6 +139,10 @@ html, body {
   animation: fade .16s ease-out;
 }
 
+/* A class selector beats the browser's own [hidden] rule, so display:grid
+   above would keep the overlay on screen. This puts hidden back in charge. */
+.overlay[hidden] { display: none; }
+
 @keyframes fade { from { opacity: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
