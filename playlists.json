@@ -3,13 +3,46 @@
   "previews": "hover",
   "playlists": [
     {
-      "id": "p1",
-      "name": "First playlist",
+      "id": "pmuhlhbyxsiyn",
+      "name": "Suburban",
       "visible": true,
       "videos": [
         {
-          "src": "sample.mp4",
-          "name": "Sample clip"
+          "src": "6725802638270631173.mp4",
+          "name": "6725802638270631173.mp4"
+        }
+      ]
+    },
+    {
+      "id": "pmuhlnd59ym9k",
+      "name": "Gay",
+      "visible": true,
+      "videos": [
+        {
+          "src": "6806724428454497542.mp4",
+          "name": "6806724428454497542.mp4"
+        }
+      ]
+    },
+    {
+      "id": "pmuhlnf39tk7f",
+      "name": "Animated",
+      "visible": true,
+      "videos": [
+        {
+          "src": "6825995513251368197.mp4",
+          "name": "6825995513251368197.mp4"
+        }
+      ]
+    },
+    {
+      "id": "pmuhlnilhurrc",
+      "name": "Garden",
+      "visible": true,
+      "videos": [
+        {
+          "src": "6836378696736050437.mp4",
+          "name": "6836378696736050437.mp4"
         }
       ]
     }
