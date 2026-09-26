@@ -2,7 +2,7 @@
   "use strict";
 
   var MAX_CELLS = 9;
-  var HOVER_DELAY = 5000;   // ms of steady hover before a cell wakes up
+  var HOVER_DELAY = 3000;   // ms of steady hover before a cell wakes up
   var HOVER_VOLUME = 0.12;  // quiet, not silent
 
   var grid = document.getElementById("grid");
@@ -31,6 +31,12 @@
   function url(base, src) {
     if (/^https?:\/\//i.test(src)) return src;
     return (base || "").replace(/\/+$/, "") + "/" + src.replace(/^\/+/, "");
+  }
+
+  // A media fragment a hair past zero makes the browser seek and decode, so the
+  // cell paints its opening frame instead of sitting as a black square.
+  function firstFrame(src) {
+    return /#t=/.test(src) ? src : src + "#t=0.001";
   }
 
   // Cache-busting query so a freshly published file is not served from cache.
@@ -96,8 +102,9 @@
     button.className = "cell";
     button.type = "button";
 
+    var cursor = 0;
+
     var video = document.createElement("video");
-    video.src = playlist.videos[0].src;
     if (playlist.poster) video.poster = playlist.poster;
     video.muted = true;
     video.volume = HOVER_VOLUME;
@@ -105,15 +112,24 @@
     video.playsInline = true;
     video.setAttribute("aria-hidden", "true");
 
-    // In hover mode nothing downloads until the pointer has rested on the cell,
-    // which keeps CDN bandwidth down on a wall that is mostly idle.
-    if (mode === "hover") {
-      video.preload = "none";
-    } else {
-      video.preload = "metadata";
+    // Metadata plus the opening frame in both modes, so no cell starts black.
+    // Hover mode still holds off on the rest of the file until the pointer
+    // rests, which is where most of the CDN bandwidth goes.
+    video.preload = "metadata";
+    video.src = firstFrame(playlist.videos[0].src);
+
+    if (mode !== "hover") {
       video.autoplay = true;
       video.play().catch(noop);
     }
+
+    // Bottom-right position counter, e.g. "1 of 2".
+    var counter = document.createElement("p");
+    counter.className = "cell-index";
+    function mark() {
+      counter.textContent = (cursor + 1) + " of " + playlist.videos.length;
+    }
+    mark();
 
     // Hovering arms a timer rather than acting at once, so sweeping the pointer
     // across the wall wakes nothing. After the delay the cell plays with sound.
@@ -162,10 +178,10 @@
       button.title = "Could not load " + video.src;
     });
 
-    var cursor = 0;
     video.addEventListener("ended", function () {
       cursor = (cursor + 1) % playlist.videos.length;
       video.src = playlist.videos[cursor].src;
+      mark();
       video.play().catch(noop);
     });
     previews.push(video);
@@ -173,15 +189,10 @@
     var label = document.createElement("p");
     label.className = "cell-name";
     label.textContent = playlist.name;
-    if (playlist.videos.length > 1) {
-      var count = document.createElement("span");
-      count.className = "cell-count";
-      count.textContent = "  " + playlist.videos.length + " videos";
-      label.appendChild(count);
-    }
 
     button.appendChild(video);
     button.appendChild(label);
+    button.appendChild(counter);
     button.addEventListener("click", function () { open(playlist); });
     return button;
   }
