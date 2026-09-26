@@ -54,10 +54,14 @@
   // of nine separate noise generators. Each cell carries its own scan-line
   // phase so the sweeps do not march in lockstep.
   var TV = (function () {
-    var SCALE = 2.5;          // noise pixel size: bigger number, coarser grain
+    var SCALE = 3.5;          // noise pixel size: bigger number, coarser grain
     var SAMPLE_COUNT = 10;    // distinct noise frames in the loop
-    var FPS = 50;             // the rate the original effect was timed against
-    var SCAN_SECONDS = 15;    // top to bottom for one sweep
+    var FPS = 70;             // the rate the original effect was timed against
+    var SCAN_FRAMES = FPS * 15;  // frames for one sweep, i.e. scanSpeed
+    var GRAIN = 50;           // brightness spread of the noise
+    var BANDS = 10;           // horizontal intensity bands down a frame
+    var BAND_LIFT = 8;        // how far a band can be lifted by the curve
+    var TRANS = 0.03;         // per-frame transparency wobble
 
     var pointer = window.matchMedia("(hover: hover) and (pointer: fine)");
     var motion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -84,13 +88,15 @@
       var ctx = canvas.getContext("2d");
       var image = ctx.createImageData(w, h);
       var data = image.data;
-      var factor = h / 50;
-      var alpha = Math.round(255 * (1 - Math.random() * 0.05));
+      var factor = h / BANDS;
+      var alpha = Math.round(255 * (1 - Math.random() * TRANS));
       var i;
 
+      // The original stops at Math.floor(h / factor) + factor; the extra two
+      // entries only guard the band + 1 lookup on the last row.
       var curve = [];
       for (i = 0; i < Math.floor(h / factor) + factor + 2; i++) {
-        curve.push(Math.floor(Math.random() * 15));
+        curve.push(Math.floor(Math.random() * BAND_LIFT));
       }
 
       var intensity = [];
@@ -101,7 +107,7 @@
 
       for (i = 0; i < w * h; i++) {
         var k = i * 4;
-        var value = Math.floor(36 * Math.random()) + intensity[Math.floor(i / w)];
+        var value = Math.floor(GRAIN * Math.random()) + intensity[Math.floor(i / w)];
         data[k] = data[k + 1] = data[k + 2] = value;
         data[k + 3] = alpha;
       }
@@ -114,11 +120,11 @@
       grd.addColorStop(0, "rgba(255,255,255,0)");
       grd.addColorStop(0.1, "rgba(255,255,255,0)");
       grd.addColorStop(0.2, "rgba(255,255,255,0.2)");
-      grd.addColorStop(0.3, "rgba(255,255,255,0)");
+      grd.addColorStop(0.35, "rgba(255,255,255,0)");
       grd.addColorStop(0.45, "rgba(255,255,255,0.1)");
       grd.addColorStop(0.5, "rgba(255,255,255,1)");
-      grd.addColorStop(0.55, "rgba(255,255,255,0.55)");
-      grd.addColorStop(0.6, "rgba(255,255,255,0.25)");
+      grd.addColorStop(0.65, "rgba(255,255,255,0.55)");
+      grd.addColorStop(0.7, "rgba(255,255,255,0.25)");
       grd.addColorStop(1, "rgba(255,255,255,0)");
       return grd;
     }
@@ -140,6 +146,12 @@
       return true;
     }
 
+    // Distance the band covers before it wraps: off the top at -scanSize/2,
+    // off the bottom at the full cell height.
+    function travel() {
+      return h + scan / 2;
+    }
+
     function paint(withBand) {
       var noise = samples[Math.floor(sampleIndex)];
       if (!noise) return;
@@ -148,10 +160,13 @@
         ctx.globalCompositeOperation = "source-over";
         ctx.drawImage(noise, 0, 0);
         if (!withBand) return;
-        var y = ((phase + s.offset) % 1) * (h + scan) - scan;
+        // The original sweep runs from -scanSize/2 down past the bottom edge,
+        // and its fill height grows with the offset, which clips the band
+        // while it is still above the top of the cell. Both are kept as-is.
+        var y = ((phase + s.offset) % 1) * travel() - scan / 2;
         ctx.globalCompositeOperation = "lighter";
         ctx.fillStyle = band(ctx, y);
-        ctx.fillRect(0, y, w, scan);
+        ctx.fillRect(0, y, w, scan + y);
       });
     }
 
@@ -161,10 +176,12 @@
 
       paint(true);
 
-      sampleIndex += 20 / FPS;
+      sampleIndex += 15 / FPS;
       if (sampleIndex >= samples.length) sampleIndex = 0;
 
-      phase += 1 / (FPS * SCAN_SECONDS);
+      // The original steps the sweep by canvas.height / scanSpeed pixels per
+      // frame; phase is that step expressed as a fraction of the full travel.
+      phase += (h / SCAN_FRAMES) / travel();
       if (phase >= 1) phase -= 1;
     }
 
@@ -530,4 +547,4 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && overlay.classList.contains("is-open")) close();
   });
-})(); 
+})();
