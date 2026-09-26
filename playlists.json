@@ -1,10 +1,9 @@
 {
   "mediaBase": "https://unwantedbdaygift.b-cdn.net/",
-  "previews": "hover",
   "playlists": [
     {
       "id": "pmuhlhbyxsiyn",
-      "name": "Suburban",
+      "name": "Memes",
       "visible": true,
       "videos": [
         {
@@ -19,7 +18,7 @@
     },
     {
       "id": "pmuhlnd59ym9k",
-      "name": "Gay",
+      "name": "Learning",
       "visible": true,
       "videos": [
         {
@@ -41,7 +40,7 @@
     },
     {
       "id": "pmuhlnilhurrc",
-      "name": "Garden",
+      "name": "Soft",
       "visible": true,
       "videos": [
         {
@@ -49,6 +48,36 @@
           "name": "6836378696736050437.mp4"
         }
       ]
+    },
+    {
+      "id": "pmuhsp46cuysy",
+      "name": "Therapy",
+      "visible": true,
+      "videos": []
+    },
+    {
+      "id": "pmuhsp78hf8t1",
+      "name": "Inside",
+      "visible": true,
+      "videos": []
+    },
+    {
+      "id": "pmuhspbeqz837",
+      "name": "Ads",
+      "visible": true,
+      "videos": []
+    },
+    {
+      "id": "pmuhspupms8ob",
+      "name": "Sparks",
+      "visible": true,
+      "videos": []
+    },
+    {
+      "id": "pmuhsqt712rg6",
+      "name": "Music",
+      "visible": true,
+      "videos": []
     }
   ]
 }
