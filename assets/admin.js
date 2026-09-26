@@ -364,32 +364,41 @@
     var api = "https://api.github.com/repos/" + owner + "/" + repo + "/contents/" + FILE;
     var headers = { Authorization: "Bearer " + token, Accept: "application/vnd.github+json" };
 
-    // The API needs the current blob sha to replace an existing file.
-    fetch(api + "?ref=" + encodeURIComponent(branch), { headers: headers })
-      .then(function (r) {
-        if (r.status === 404) return null;
-        if (!r.ok) return r.json().then(function (e) { throw new Error(e.message || r.status); });
-        return r.json().then(function (j) { return j.sha; });
-      })
-      .then(function (sha) {
-        var body = {
-          message: "Update wall playlists",
-          content: utf8Base64(serialise()),
-          branch: branch
-        };
-        if (sha) body.sha = sha;
-        return fetch(api, {
-          method: "PUT",
-          headers: Object.assign({ "Content-Type": "application/json" }, headers),
-          body: JSON.stringify(body)
+    var payload = utf8Base64(serialise());
+    var retried = false;
+
+    // The API needs the current blob sha to replace an existing file. The read
+    // is uncached: a revalidated response carries the sha from before the last
+    // publish, and GitHub then rejects the write as a conflict.
+    function currentSha() {
+      return fetch(api + "?ref=" + encodeURIComponent(branch) + "&t=" + Date.now(),
+                   { headers: headers, cache: "no-store" })
+        .then(function (r) {
+          if (r.status === 404) return null;          // the file is not there yet
+          if (!r.ok) return r.json().then(function (e) { throw new Error(e.message || r.status); });
+          return r.json().then(function (j) { return j.sha; });
         });
-      })
-      .then(function (r) {
+    }
+
+    function put(sha) {
+      var body = { message: "Update wall playlists", content: payload, branch: branch };
+      if (sha) body.sha = sha;
+      return fetch(api, {
+        method: "PUT",
+        headers: Object.assign({ "Content-Type": "application/json" }, headers),
+        body: JSON.stringify(body)
+      }).then(function (r) {
         return r.json().then(function (j) {
+          // 409 means the sha was stale. Read it again and make one more attempt.
+          if (r.status === 409 && !retried) { retried = true; return currentSha().then(put); }
           if (!r.ok) throw new Error(j.message || "HTTP " + r.status);
           return j;
         });
-      })
+      });
+    }
+
+    currentSha()
+      .then(put)
       .then(function () {
         dirty = false;
         say("Published. GitHub Pages usually rebuilds within a minute.");
