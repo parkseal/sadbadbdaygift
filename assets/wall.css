@@ -142,16 +142,19 @@ html, body {
   background-size: 100% 100%;
 }
 
-/* Edges tile. background-size keeps one axis locked to the strip depth and
-   lets the other run free, so the grain never squashes. */
+/* Edges. The left, right and bottom strips tile: background-size locks one
+   axis to the strip depth and lets the other run free, so the grain never
+   squashes. The top strip stretches instead, because its source image is lit
+   unevenly across its width and tiling it leaves visible vertical seams. The
+   moulding there is flat enough that the stretch does not read. */
 .cell-frame .t {
   top: 0;
   left: calc(var(--bz) * 4.403);
   right: calc(var(--bz) * 3.831);
   height: calc(var(--bz) * 0.790);
   background-image: url("frame/top_middle.png");
-  background-repeat: repeat-x;
-  background-size: auto 100%;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
   background-position: left top;
 }
 .cell-frame .b {
