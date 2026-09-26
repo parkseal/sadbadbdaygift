@@ -6,6 +6,8 @@
   --edge: #2b3038;
   --text: #e9eaec;
   --dim: #9aa1ab;
+  --tv-idle: .8;             /* how much static covers a resting cell */
+  --tv-fade: .45s;           /* how long it takes to clear on hover */
 }
 
 * { box-sizing: border-box; }
@@ -61,12 +63,26 @@ html, body {
   pointer-events: none;
 }
 
+/* Television static, one canvas per cell, drawn by wall.js. It sits above the
+   picture and below the labels, and clears when the cell is pointed at. */
+.cell-tv {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: var(--tv-idle);
+  transition: opacity var(--tv-fade) ease;
+}
+
 .cell-name {
   position: absolute;
   left: 1rem;
   bottom: .85rem;
   right: 5rem;
-  z-index: 1;
+  z-index: 2;
   margin: 0;
   font-size: clamp(.8rem, 1.1vw, 1rem);
   font-weight: 500;
@@ -87,7 +103,7 @@ html, body {
   position: absolute;
   right: 1rem;
   bottom: .85rem;
-  z-index: 1;
+  z-index: 2;
   margin: 0;
   color: var(--dim);
   font-size: clamp(.72rem, .95vw, .88rem);
@@ -109,6 +125,9 @@ html, body {
   .grid:hover .cell video { opacity: .45; }
   .grid .cell:hover video,
   .grid .cell:focus-visible video { opacity: 1; }
+
+  .cell:hover .cell-tv,
+  .cell:focus-visible .cell-tv { opacity: 0; }
 }
 
 .cell.is-empty {
@@ -159,6 +178,8 @@ html, body {
 @media (prefers-reduced-motion: reduce) {
   .overlay.is-open { animation: none; }
   .cell video { transition: none; }
+  /* wall.js paints one still frame; the reveal is instant. */
+  .cell-tv { transition: none; }
 }
 
 .stage {

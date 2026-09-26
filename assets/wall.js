@@ -12,12 +12,176 @@
   var closeBtn = document.getElementById("stage-close");
 
   var previews = [];
+  var gates = [];           // per-cell callbacks run at the first user gesture
   var queue = [];
   var index = 0;
 
   // Start closed, whatever state the markup or a restored page arrived in.
   overlay.classList.remove("is-open");
   overlay.hidden = true;
+
+  // ------------------------------------------------------------ tv static
+
+  // One set of noise frames is generated once and shared by every cell, so a
+  // nine-cell wall costs one blit and one gradient per cell per frame instead
+  // of nine separate noise generators. Each cell carries its own scan-line
+  // phase so the sweeps do not march in lockstep.
+  var TV = (function () {
+    var SCALE = 2.5;          // noise pixel size: bigger number, coarser grain
+    var SAMPLE_COUNT = 10;    // distinct noise frames in the loop
+    var FPS = 50;             // the rate the original effect was timed against
+    var SCAN_SECONDS = 15;    // top to bottom for one sweep
+
+    var pointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+    var motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    var samples = [];   // offscreen canvases, one per noise frame
+    var screens = [];   // { canvas, ctx, offset }
+    var w = 0, h = 0, scan = 0;
+    var sampleIndex = 0, phase = 0;
+    var frame = null;
+    var held = false;   // paused while the overlay player is up
+    var sizing = null;
+
+    function interpolate(x, x0, y0, x1, y1) {
+      return y0 + (y1 - y0) * ((x - x0) / (x1 - x0));
+    }
+
+    // Uniform noise with a slow vertical intensity curve laid over it, which
+    // is what reads as scan lines rather than flat television snow.
+    function makeSample(w, h) {
+      var canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+
+      var ctx = canvas.getContext("2d");
+      var image = ctx.createImageData(w, h);
+      var data = image.data;
+      var factor = h / 50;
+      var alpha = Math.round(255 * (1 - Math.random() * 0.05));
+      var i;
+
+      var curve = [];
+      for (i = 0; i < Math.floor(h / factor) + factor + 2; i++) {
+        curve.push(Math.floor(Math.random() * 15));
+      }
+
+      var intensity = [];
+      for (i = 0; i < h; i++) {
+        var band = Math.floor(i / factor);
+        intensity.push(interpolate(i / factor, band, curve[band], band + 1, curve[band + 1]));
+      }
+
+      for (i = 0; i < w * h; i++) {
+        var k = i * 4;
+        var value = Math.floor(36 * Math.random()) + intensity[Math.floor(i / w)];
+        data[k] = data[k + 1] = data[k + 2] = value;
+        data[k + 3] = alpha;
+      }
+      ctx.putImageData(image, 0, 0);
+      return canvas;
+    }
+
+    function band(ctx, y) {
+      var grd = ctx.createLinearGradient(0, y, 0, y + scan);
+      grd.addColorStop(0, "rgba(255,255,255,0)");
+      grd.addColorStop(0.1, "rgba(255,255,255,0)");
+      grd.addColorStop(0.2, "rgba(255,255,255,0.2)");
+      grd.addColorStop(0.3, "rgba(255,255,255,0)");
+      grd.addColorStop(0.45, "rgba(255,255,255,0.1)");
+      grd.addColorStop(0.5, "rgba(255,255,255,1)");
+      grd.addColorStop(0.55, "rgba(255,255,255,0.55)");
+      grd.addColorStop(0.6, "rgba(255,255,255,0.25)");
+      grd.addColorStop(1, "rgba(255,255,255,0)");
+      return grd;
+    }
+
+    // Cells share a size in the grid, so one measurement covers the wall.
+    function measure() {
+      if (!screens.length) return false;
+      var probe = screens[0].canvas;
+      var cw = probe.offsetWidth, ch = probe.offsetHeight;
+      if (!cw || !ch) return false;
+
+      w = Math.max(2, Math.round(cw / SCALE));
+      h = Math.max(2, Math.round(ch / SCALE));
+      scan = h / 3;
+
+      screens.forEach(function (s) { s.canvas.width = w; s.canvas.height = h; });
+      samples = [];
+      for (var i = 0; i < SAMPLE_COUNT; i++) samples.push(makeSample(w, h));
+      return true;
+    }
+
+    function paint(withBand) {
+      var noise = samples[Math.floor(sampleIndex)];
+      if (!noise) return;
+      screens.forEach(function (s) {
+        var ctx = s.ctx;
+        ctx.globalCompositeOperation = "source-over";
+        ctx.drawImage(noise, 0, 0);
+        if (!withBand) return;
+        var y = ((phase + s.offset) % 1) * (h + scan) - scan;
+        ctx.globalCompositeOperation = "lighter";
+        ctx.fillStyle = band(ctx, y);
+        ctx.fillRect(0, y, w, scan);
+      });
+    }
+
+    function render() {
+      frame = window.requestAnimationFrame(render);
+      if (held || document.hidden || !samples.length) return;
+
+      paint(true);
+
+      sampleIndex += 20 / FPS;
+      if (sampleIndex >= samples.length) sampleIndex = 0;
+
+      phase += 1 / (FPS * SCAN_SECONDS);
+      if (phase >= 1) phase -= 1;
+    }
+
+    function stop() {
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = null;
+    }
+
+    window.addEventListener("resize", function () {
+      clearTimeout(sizing);
+      sizing = setTimeout(function () { if (screens.length) measure(); }, 200);
+    });
+
+    return {
+      // Nothing to fade away from on a touch screen, so it is never built.
+      wanted: function () { return pointer.matches; },
+
+      reset: function () {
+        stop();
+        screens = [];
+        samples = [];
+      },
+
+      attach: function (cell) {
+        if (!pointer.matches) return;
+        var canvas = document.createElement("canvas");
+        canvas.className = "cell-tv";
+        canvas.setAttribute("aria-hidden", "true");
+        cell.appendChild(canvas);
+        screens.push({ canvas: canvas, ctx: canvas.getContext("2d"), offset: Math.random() });
+      },
+
+      start: function () {
+        if (!pointer.matches || !screens.length) return;
+        if (!measure()) return;
+        sampleIndex = 0;
+        phase = 0;
+        if (motion.matches) { paint(false); return; }   // one still frame, no sweep
+        if (!frame) frame = window.requestAnimationFrame(render);
+      },
+
+      hold: function (on) { held = !!on; }
+    };
+  })();
 
   // Never smaller than 2x2. Past four playlists it grows to 3x2, then 3x3.
   // Leftover slots stay black rather than stretching the cells with content.
@@ -76,6 +240,8 @@
 
     grid.innerHTML = "";
     previews = [];
+    gates = [];
+    TV.reset();
 
     if (!playlists.length) {
       grid.className = "blank";
@@ -92,6 +258,8 @@
       grid.appendChild(playlist.videos.length ? cell(playlist) : emptyCell(playlist));
     });
     for (var i = playlists.length; i < box.slots; i++) grid.appendChild(blankCell());
+
+    TV.start();
   }
 
   function cell(playlist) {
@@ -177,6 +345,14 @@
     button.addEventListener("focus", hoverIn);
     button.addEventListener("blur", hoverOut);
 
+    // Run at the first click or key press anywhere on the page. A cell that is
+    // already hovered and stuck silent gets another go at its sound; the rest
+    // are blessed so they can be unmuted later without a gesture of their own.
+    gates.push(function () {
+      if (awake) sound();
+      else bless(video);
+    });
+
     video.addEventListener("error", function () {
       button.classList.add("is-broken");
       var flag = label.querySelector(".cell-flag");
@@ -202,6 +378,7 @@
     label.textContent = playlist.name;
 
     button.appendChild(video);
+    TV.attach(button);
     button.appendChild(label);
     button.appendChild(counter);
     button.addEventListener("click", function () { open(playlist); });
@@ -211,6 +388,7 @@
   function emptyCell(playlist) {
     var div = document.createElement("div");
     div.className = "cell is-empty";
+    TV.attach(div);
     var label = document.createElement("p");
     label.className = "cell-name";
     label.textContent = playlist.name + " has no videos yet";
@@ -222,6 +400,7 @@
     var div = document.createElement("div");
     div.className = "cell is-blank";
     div.setAttribute("aria-hidden", "true");
+    TV.attach(div);
     return div;
   }
 
@@ -230,6 +409,38 @@
   function hush() {
     previews.forEach(function (v) { v.muted = true; });
   }
+
+  // ---------------------------------------------------------- audio gate
+
+  // Browsers refuse unmuted playback until the page has had a real user
+  // gesture. Moving the pointer is not one, which is why the first hover is
+  // silent while every hover after the first overlay click has sound. There is
+  // no way around the rule, but one click or key press anywhere will do, and
+  // it need not land on a cell.
+  var unlocked = false;
+
+  // Starting an element inside the gesture and stopping it again marks that
+  // element as allowed to play, which is what Safari wants. Chrome unlocks the
+  // whole document on the same gesture, so this costs it a frame and nothing else.
+  function bless(video) {
+    video.muted = true;
+    var started = video.play();
+    var settle = function () {
+      video.pause();
+      try { video.currentTime = 0.001; } catch (e) {}
+    };
+    if (started && started.then) started.then(settle, noop);
+    else settle();
+  }
+
+  function unlockAudio() {
+    if (unlocked) return;
+    unlocked = true;
+    gates.forEach(function (gate) { gate(); });
+  }
+
+  document.addEventListener("pointerdown", unlockAudio, true);
+  document.addEventListener("keydown", unlockAudio, true);
 
   // ------------------------------------------------------------- overlay
 
@@ -241,6 +452,7 @@
     document.documentElement.style.overflow = "hidden";
     hush();
     previews.forEach(function (v) { v.pause(); });
+    TV.hold(true);            // nothing behind the player needs drawing
     play();
   }
 
@@ -272,6 +484,7 @@
     overlay.classList.remove("is-open");
     overlay.hidden = true;
     document.documentElement.style.overflow = "";
+    TV.hold(false);
     queue = [];
   }
 
