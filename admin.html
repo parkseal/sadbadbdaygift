@@ -36,11 +36,11 @@
   <section class="pane">
     <h2>Playlist contents</h2>
     <p class="note" id="contents-hint">Select a playlist to arrange its videos.</p>
+    <p class="note">A file belongs to one playlist only, so the same video cannot sit in two cells.</p>
 
     <div id="contents-tools" hidden>
       <div class="new-row">
-        <input id="v-src" type="text" placeholder="File on Bunny, e.g. clips/intro.mp4" list="known-srcs" autocomplete="off">
-        <datalist id="known-srcs"></datalist>
+        <input id="v-src" type="text" placeholder="File on Bunny, e.g. clips/intro.mp4" autocomplete="off">
       </div>
       <div class="new-row">
         <input id="v-name" type="text" placeholder="Label (optional)" autocomplete="off">
@@ -60,14 +60,7 @@
       <em>Video paths are appended to this. A full https:// path in a video field is used as-is.</em>
     </label>
 
-    <label class="field">
-      <span>Grid previews</span>
-      <select id="previews">
-        <option value="auto">Play on load, muted</option>
-        <option value="hover">Play after 3 seconds of hover, cheaper</option>
-      </select>
-      <em>Either way, a cell turns its sound on quietly once the pointer has rested on it for three seconds. Every cell shows its opening frame straight away; hover mode holds off downloading the rest of the file until then, which cuts CDN bandwidth.</em>
-    </label>
+    <p class="note">Cells sit on their opening frame and start playing, quietly, after three seconds of hover.</p>
 
     <h2 class="spaced">Publishing</h2>
     <p class="note">Saving writes playlists.json to your repo through the GitHub API. The token stays in this browser and is never written to the repo.</p>
