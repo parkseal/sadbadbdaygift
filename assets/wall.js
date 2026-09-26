@@ -15,6 +15,33 @@
   var gates = [];           // per-cell callbacks run at the first user gesture
   var queue = [];
   var index = 0;
+  var current = null;       // the playlist the overlay is showing
+
+  // ------------------------------------------------------- resume position
+
+  // Which video a visitor was last on, per playlist, kept in this browser.
+  // Only the position in the playlist is stored, never a time within a file.
+  var RESUME = "wall-resume";
+  var RESUME_TTL = 6 * 60 * 60 * 1000;   // a stored position expires after six hours
+
+  function resumeAll() {
+    try { return JSON.parse(localStorage.getItem(RESUME) || "{}"); }
+    catch (e) { return {}; }
+  }
+
+  // Clamped and expired on read, so a shortened playlist or a stale position
+  // falls back to the start rather than pointing at a video that is gone.
+  function resumeGet(id, length) {
+    var saved = resumeAll()[id];
+    if (!saved || Date.now() - saved.at > RESUME_TTL) return 0;
+    return (typeof saved.n === "number" && saved.n >= 0 && saved.n < length) ? saved.n : 0;
+  }
+
+  function resumeSet(id, n) {
+    var all = resumeAll();
+    all[id] = { n: n, at: Date.now() };
+    try { localStorage.setItem(RESUME, JSON.stringify(all)); } catch (e) {}
+  }
 
   // Start closed, whatever state the markup or a restored page arrived in.
   overlay.classList.remove("is-open");
@@ -230,6 +257,7 @@
       .slice(0, MAX_CELLS)
       .map(function (p) {
         return {
+          id: p.id || p.name || "",
           name: p.name || "Untitled",
           poster: p.poster ? url(base, p.poster) : "",
           videos: (p.videos || []).map(function (v) {
@@ -267,20 +295,21 @@
     button.className = "cell";
     button.type = "button";
 
-    var cursor = 0;
+    // The cell opens on wherever this visitor left off and stays there for the
+    // whole page load, so hover only ever plays the video on screen.
+    var cursor = resumeGet(playlist.id, playlist.videos.length);
 
     var video = document.createElement("video");
     if (playlist.poster) video.poster = playlist.poster;
     video.muted = true;
     video.volume = HOVER_VOLUME;
-    video.loop = playlist.videos.length === 1;
     video.playsInline = true;
     video.setAttribute("aria-hidden", "true");
 
     // Metadata plus the opening frame, so a cell shows its picture while idle
     // without pulling the body of the file down. Nothing plays until hovered.
     video.preload = "metadata";
-    video.src = firstFrame(playlist.videos[0].src);
+    video.src = firstFrame(playlist.videos[cursor].src);
 
     // Bottom-right position counter, e.g. "1 of 2".
     var counter = document.createElement("p");
@@ -365,11 +394,13 @@
       button.title = "Could not load " + video.src;
     });
 
+    // Hover playback never leaves the video the cell opened with. Reaching the
+    // end counts as a watch, so the stored position moves on and the next page
+    // load opens this cell on the following video. This pass just loops.
     video.addEventListener("ended", function () {
-      cursor = (cursor + 1) % playlist.videos.length;
-      video.src = playlist.videos[cursor].src;
-      mark();
-      video.play().catch(noop);
+      resumeSet(playlist.id, (cursor + 1) % playlist.videos.length);
+      try { video.currentTime = 0; } catch (e) {}
+      if (awake) video.play().catch(noop);
     });
     previews.push(video);
 
@@ -445,8 +476,9 @@
   // ------------------------------------------------------------- overlay
 
   function open(playlist) {
+    current = playlist;
     queue = playlist.videos;
-    index = 0;
+    index = resumeGet(playlist.id, queue.length);
     overlay.hidden = false;
     overlay.classList.add("is-open");
     document.documentElement.style.overflow = "hidden";
@@ -474,10 +506,12 @@
   stage.addEventListener("ended", function () {
     index += 1;
     if (index >= queue.length) index = 0;
+    if (current) resumeSet(current.id, index);
     play();
   });
 
   function close() {
+    if (current) resumeSet(current.id, index);
     stage.pause();
     stage.removeAttribute("src");
     stage.load();
@@ -486,6 +520,7 @@
     document.documentElement.style.overflow = "";
     TV.hold(false);
     queue = [];
+    current = null;
   }
 
   // Clicking the surround closes; clicks on the player belong to its controls.
@@ -495,4 +530,4 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && overlay.classList.contains("is-open")) close();
   });
-})();
+})(); 
