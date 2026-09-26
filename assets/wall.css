@@ -8,7 +8,20 @@
   --dim: #9aa1ab;
   --tv-idle: .5;             /* how much static covers a resting cell */
   --tv-fade: .5s;           /* how long it takes to clear on hover */
-    --led-idle: .3; 
+  --led-idle: .3;            /* how dim a resting channel number sits */
+
+  /* The pointer is a handset. The hotspot is the emitter corner at the top
+     left of the image, so it points the way an arrow would. */
+  --remote: url("remote.png") 7 2;
+}
+
+/* Twice the pixels on a dense screen. Kept in @supports because a browser
+   that cannot parse image-set() here would throw out the whole declaration,
+   fallback keyword and all, and leave the wall with no cursor at all. */
+@supports (cursor: image-set(url("remote.png") 1x, url("remote-2x.png") 2x) 7 2) {
+  :root {
+    --remote: image-set(url("remote.png") 1x, url("remote-2x.png") 2x) 7 2;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -20,6 +33,7 @@ html, body {
   color: var(--text);
   font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   overflow: hidden;
+  cursor: var(--remote), auto;
 }
 
 /* ---------------------------------------------------------------- grid */
@@ -51,7 +65,7 @@ html, body {
   background: transparent;
   border: 0;
   padding: 0;
-  cursor: pointer;
+  cursor: var(--remote), pointer;
   color: inherit;
   font: inherit;
   text-align: left;
@@ -112,6 +126,19 @@ html, body {
 
     object-fit: contain;
 }
+
+.cell-screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(8,9,11,.72) 0%, rgba(8,9,11,0) 38%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* The picture sits down inside the tube rather than flush with the bezel
+   opening. This has to be its own layer: an inset shadow on .cell-screen
+   itself would paint behind the video and never be seen. */
 .cell-screen::before {
   content: "";
   position: absolute;
@@ -122,16 +149,6 @@ html, body {
     inset 0 0 calc(var(--bz) * 0.7) rgba(0, 0, 0, .78),
     inset 0 0 calc(var(--bz) * 0.2) rgba(0, 0, 0, .6);
 }
-
-.cell-screen::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgba(8,9,11,.72) 0%, rgba(8,9,11,0) 38%);
-  pointer-events: none;
-  z-index: 2;
-}
-.stage-set .cell-screen::before { content: none; }
 
 /* ----------------------------------------------------------- the bezel */
 
@@ -256,12 +273,16 @@ html, body {
   white-space: nowrap;
   text-shadow: 0 1px 3px rgba(0,0,0,.6);
 }
+
+/* The counter now only appears in the overlay, where the bottom strip belongs
+   to the browser's own control bar, so it is lifted clear of it. */
 .stage-set .cell-index {
   right: 1rem;
   bottom: 3.4rem;
   z-index: 3;
   font-size: .8rem;
 }
+
 .cell:focus-visible { outline: none; }
 .cell:focus-visible .cell-screen { outline: 2px solid var(--text); outline-offset: -2px; }
 
@@ -276,13 +297,14 @@ html, body {
   .cell:hover .cell-tv,
   .cell:focus-visible .cell-tv { opacity: 0; }
 
-    .cell .cell-led { opacity: var(--led-idle); }
+  /* Scoped to .cell so the overlay's readout stays at full strength. */
+  .cell .cell-led { opacity: var(--led-idle); }
   .cell:hover .cell-led,
   .cell:focus-visible .cell-led { opacity: 1; }
 }
 
 /* A playlist with no videos: an inert screen carrying only its readout. */
-.cell.is-empty { cursor: default; }
+.cell.is-empty { cursor: var(--remote), default; }
 
 /* Unused slots in the grid: a dark, inert screen in a frame. */
 .cell.is-blank { pointer-events: none; }
@@ -314,7 +336,7 @@ html, body {
   display: none;
   place-items: center;
   background: rgba(8, 9, 11, .94);
-  cursor: pointer;
+  cursor: var(--remote), pointer;
 
   /* Clear space around the set. Vertically a tenth of the window but never
      less than 200px; horizontally the same tenth, measured against whichever
@@ -334,6 +356,7 @@ html, body {
   .cell-screen video { transition: none; }
   /* wall.js paints one still frame; the reveal is instant. */
   .cell-tv { transition: none; }
+  .cell-led { transition: none; }
 }
 
 /* The overlay is the same set, much heavier. --bz is the bezel unit: the
@@ -387,6 +410,7 @@ html, body {
 /* No vignette over the player: it would sit on the control bar. */
 .stage-set .cell-screen { background: #000; }
 .stage-set .cell-screen::after { content: none; }
+.stage-set .cell-screen::before { content: none; }
 
 .stage {
   width: 100%;
