@@ -319,6 +319,18 @@
     return wrap;
   }
 
+  // Four-character readout on the front panel of the set. Positioned by CSS
+  // against the bottom-right corner image, so it tracks the bezel at any
+  // cell size. Hidden from screen readers: .cell-name already carries the
+  // full playlist name.
+  function led(name) {
+    var p = document.createElement("p");
+    p.className = "cell-led";
+    p.setAttribute("aria-hidden", "true");
+    p.textContent = String(name || "").trim().slice(0, 4).toUpperCase();
+    return p;
+  }
+
   function cell(playlist) {
     var button = document.createElement("button");
     button.className = "cell";
@@ -443,6 +455,7 @@
     screen.appendChild(label);
     screen.appendChild(counter);
     button.appendChild(frame());
+    button.appendChild(led(playlist.name));
     button.addEventListener("click", function () { open(playlist); });
     return button;
   }
@@ -457,6 +470,7 @@
     label.textContent = playlist.name + " has no videos yet";
     screen.appendChild(label);
     div.appendChild(frame());
+    div.appendChild(led(playlist.name));
     return div;
   }
 

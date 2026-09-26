@@ -45,41 +45,49 @@ html, body {
   font: inherit;
   text-align: left;
   isolation: isolate;
-
-  /* The cell is its own container, so the bezel is measured against this
-     cell rather than the viewport and every grid shape gets the same look. */
   container-type: size;
-
-  /* --bz is the thickness of the left and right bezel. Everything else in
-     the frame, corners included, is a fixed multiple of it, taken from the
-     source images: left/right 124px, top 95px, bottom 252px, corners
-     546x407 (top left), 475x373 (top right), 602x509 and 595x509 (bottom).
-     So raising --bz grows the corners and the screen inset together. */
   --bz: 27px;
+  --bz-b: calc(var(--bz) * 2.032);
+  --led-right:  calc(var(--bz) * 1.93);
+  --led-bottom: calc(var(--bz) * 0.38);
+  --led-width:  calc(var(--bz) * 0.81);
+  --led-height: calc(var(--bz) * 0.57);
 }
 
-/* Every term is 1.5x the original, so the frame is at least half again as
-   thick at any cell size, never just at the small end. The corners stay in
-   proportion because their size is derived from --bz.
-   At the 8.1cqmin figure the two corners on any edge take about two thirds
-   of that edge, so they cannot meet in the middle whatever shape the grid
-   gives a cell. */
 @supports (width: 1cqmin) {
   .cell { --bz: clamp(13.5px, 8.1cqmin, 60px); }
 }
 
-/* --------------------------------------------------------- the picture */
+.cell-led {
+  position: absolute;
+  right: var(--led-right);
+  bottom: var(--led-bottom);
+  width: var(--led-width);
+  height: var(--led-height);
+  z-index: 4;                /* above the bezel, which is 3 */
+  margin: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  pointer-events: none;
+  white-space: nowrap;
+  font-family: "VT323", ui-monospace, "Courier New", monospace;
+  font-size: calc(var(--led-height) * 1.15);
+  line-height: 1;
+  letter-spacing: .06em;
+  color: #ff3a06;
+  text-shadow:
+    0 0 1px #ff6a22,
+    0 0 4px rgba(255, 70, 0, .8),
+    0 0 11px rgba(255, 45, 0, .5);
+}
 
-/* The screen sits inside the bezel opening. It is not centred in the cell:
-   the bottom of the frame is far deeper than the top, so the picture is
-   pushed upwards to match. The 1px bleed tucks the video edges under the
-   frame so no hairline of background shows at the join. */
 .cell-screen {
   position: absolute;
   top: calc(var(--bz) * 0.766 - 1px);
   left: calc(var(--bz) * 0.996 - 1px);
   right: calc(var(--bz) * 0.996 - 1px);
-  bottom: calc(var(--bz) * 2.032 - 1px);
+  bottom: calc(var(--bz-b) - 1px);
   overflow: hidden;
   background: var(--cell);
   z-index: 0;
@@ -168,7 +176,7 @@ html, body {
   bottom: 0;
   left: calc(var(--bz) * 4.855);
   right: calc(var(--bz) * 4.798);
-  height: calc(var(--bz) * 2.032);
+  height: var(--bz-b);
   background-image: url("frame/bottom_middle.png");
   background-repeat: repeat-x;
   background-size: auto 100%;
