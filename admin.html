@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Wall admin</title>
-<link rel="stylesheet" href="assets/admin.css">
+<link rel="stylesheet" href="assets/admin.css?v=2">
 </head>
 <body>
 
@@ -13,11 +13,75 @@
   <h1>Wall admin</h1>
   <nav>
     <span id="shape" class="meta"></span>
+    <span id="publish-note" class="meta"></span>
+    <button id="publish" type="button" class="primary">Publish</button>
+    <button id="settings-toggle" type="button" class="link" aria-expanded="false" aria-controls="settings">Settings</button>
     <a href="index.html" target="_blank" rel="noopener">View the wall</a>
   </nav>
 </header>
 
 <div id="toast" class="toast" hidden></div>
+
+<!-- Collapsed by default; the open state is remembered in this browser. -->
+<section id="settings" class="settings" hidden>
+
+  <div class="set-col">
+    <h2>Delivery</h2>
+    <label class="field">
+      <span>Bunny pull zone URL</span>
+      <input id="media-base" type="text" placeholder="https://your-zone.b-cdn.net/" autocomplete="off">
+      <em>Video paths are appended to this. A full https:// path in a video field is used as-is.</em>
+    </label>
+    <p class="note">Cells sit on their opening frame and start playing, quietly, after three seconds of hover.</p>
+  </div>
+
+  <div class="set-col">
+    <h2>Storage browsing</h2>
+    <p class="note">Optional. Lets the library pane list the files in your storage zone so you can drag them into a playlist.</p>
+    <label class="field"><span>Storage zone name</span><input id="sz-name" type="text" autocomplete="off"></label>
+    <label class="field">
+      <span>Storage region</span>
+      <select id="sz-region">
+        <option value="">Falkenstein / default (storage.bunnycdn.com)</option>
+        <option value="uk">London (uk)</option>
+        <option value="ny">New York (ny)</option>
+        <option value="la">Los Angeles (la)</option>
+        <option value="sg">Singapore (sg)</option>
+        <option value="se">Stockholm (se)</option>
+        <option value="br">Sao Paulo (br)</option>
+        <option value="jh">Johannesburg (jh)</option>
+        <option value="syd">Sydney (syd)</option>
+      </select>
+      <em>The main region of the zone, from Storage &gt; your zone &gt; FTP &amp; API Access.</em>
+    </label>
+    <label class="field">
+      <span>Storage password</span>
+      <input id="sz-key" type="password" placeholder="storage zone password" autocomplete="off">
+      <em>Use the zone's <strong>read-only</strong> password. It stays in this browser and is never written to the repo, but anyone at this machine can read it.</em>
+    </label>
+    <div class="new-row">
+      <button id="sz-load" type="button">Load file list</button>
+      <button id="sz-forget" type="button" class="danger">Forget password</button>
+    </div>
+  </div>
+
+  <div class="set-col">
+    <h2>Publishing</h2>
+    <p class="note">Saving writes playlists.json to your repo through the GitHub API. The token stays in this browser and is never written to the repo.</p>
+    <label class="field"><span>Repository owner</span><input id="gh-owner" type="text" autocomplete="off"></label>
+    <label class="field"><span>Repository name</span><input id="gh-repo" type="text" autocomplete="off"></label>
+    <label class="field"><span>Branch</span><input id="gh-branch" type="text" value="main" autocomplete="off"></label>
+    <label class="field">
+      <span>Fine-grained token, Contents: read and write</span>
+      <input id="gh-token" type="password" placeholder="github_pat_..." autocomplete="off">
+    </label>
+    <div class="new-row">
+      <button id="download" type="button">Download JSON</button>
+      <button id="forget" type="button" class="danger">Forget token</button>
+    </div>
+  </div>
+
+</section>
 
 <main class="panes">
 
@@ -36,53 +100,37 @@
   <section class="pane">
     <h2>Playlist contents</h2>
     <p class="note" id="contents-hint">Select a playlist to arrange its videos.</p>
-    <p class="note">A file belongs to one playlist only, so the same video cannot sit in two cells.</p>
 
     <div id="contents-tools" hidden>
-      <div class="new-row">
-        <input id="v-src" type="text" placeholder="File on Bunny, e.g. clips/intro.mp4" autocomplete="off">
-      </div>
-      <div class="new-row">
-        <input id="v-name" type="text" placeholder="Label (optional)" autocomplete="off">
-        <button id="v-go" type="button" class="primary">Add video</button>
-      </div>
+      <details class="manual">
+        <summary>Add a path by hand</summary>
+        <div class="new-row">
+          <input id="v-src" type="text" placeholder="File on Bunny, e.g. clips/intro.mp4" autocomplete="off">
+        </div>
+        <div class="new-row">
+          <input id="v-name" type="text" placeholder="Label (optional)" autocomplete="off">
+          <button id="v-go" type="button">Add video</button>
+        </div>
+      </details>
     </div>
 
-    <ol id="items" class="rows"></ol>
+    <ol id="items" class="rows dropzone"></ol>
   </section>
 
   <section class="pane">
-    <h2>Settings</h2>
-
-    <label class="field">
-      <span>Bunny pull zone URL</span>
-      <input id="media-base" type="text" placeholder="https://your-zone.b-cdn.net/" autocomplete="off">
-      <em>Video paths are appended to this. A full https:// path in a video field is used as-is.</em>
-    </label>
-
-    <p class="note">Cells sit on their opening frame and start playing, quietly, after three seconds of hover.</p>
-
-    <h2 class="spaced">Publishing</h2>
-    <p class="note">Saving writes playlists.json to your repo through the GitHub API. The token stays in this browser and is never written to the repo.</p>
-
-    <label class="field"><span>Repository owner</span><input id="gh-owner" type="text" autocomplete="off"></label>
-    <label class="field"><span>Repository name</span><input id="gh-repo" type="text" autocomplete="off"></label>
-    <label class="field"><span>Branch</span><input id="gh-branch" type="text" value="main" autocomplete="off"></label>
-    <label class="field">
-      <span>Fine-grained token, Contents: read and write</span>
-      <input id="gh-token" type="password" placeholder="github_pat_..." autocomplete="off">
-    </label>
+    <h2>Library</h2>
+    <p class="note" id="lib-note">Add your storage zone details in Settings to list the files here.</p>
 
     <div class="new-row">
-      <button id="publish" type="button" class="primary">Publish to GitHub</button>
-      <button id="download" type="button">Download JSON</button>
-      <button id="forget" type="button" class="danger">Forget token</button>
+      <input id="lib-find" type="text" placeholder="Filter by name" autocomplete="off">
+      <button id="lib-refresh" type="button">Refresh</button>
     </div>
-    <p class="note" id="publish-note">Unsaved changes live in this browser only until you publish.</p>
+
+    <ol id="library" class="rows"></ol>
   </section>
 
 </main>
 
-<script src="assets/admin.js"></script>
+<script src="assets/admin.js?v=2"></script>
 </body>
 </html>

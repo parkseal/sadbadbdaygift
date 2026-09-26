@@ -5,8 +5,15 @@
   var FILE = "playlists.json";
   var STORE = "wall-admin";
 
+  // Storage listing limits, so a deep zone cannot spin forever.
+  var LIB_DEPTH = 3;      // folder levels below the root
+  var LIB_MAX = 2000;     // files kept
+  var VIDEO = /\.(mp4|webm|mov|m4v|ogv|ogg)$/i;
+
   var data = { mediaBase: "", playlists: [] };
+  var library = [];       // { src, size, at }
   var selected = null;
+  var dragging = null;    // src being dragged, for the in-page drop targets
   var dirty = false;
 
   var $ = function (id) { return document.getElementById(id); };
@@ -19,7 +26,7 @@
     toast.className = bad ? "toast bad" : "toast";
     toast.hidden = false;
     clearTimeout(say.timer);
-    say.timer = setTimeout(function () { toast.hidden = true; }, 4000);
+    say.timer = setTimeout(function () { toast.hidden = true; }, 5000);
   }
 
   function el(tag, cls, text) {
@@ -37,10 +44,17 @@
     list.splice(to, 0, list.splice(from, 1)[0]);
   }
 
+  function size(bytes) {
+    if (!bytes && bytes !== 0) return "";
+    if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + " KB";
+    if (bytes < 1024 * 1024 * 1024) return (bytes / 1048576).toFixed(1) + " MB";
+    return (bytes / 1073741824).toFixed(2) + " GB";
+  }
+
   function touched(keepCaretIn) {
     dirty = true;
-    $("publish-note").textContent = "Unpublished changes. They live in this browser until you publish.";
-    $("publish-note").className = "note alert";
+    $("publish-note").textContent = "unpublished changes";
+    $("publish-note").className = "meta alert";
     saveLocal();
     draw();
     if (keepCaretIn) {
@@ -100,11 +114,25 @@
     return saved;
   }
 
+  // ---------------------------------------------------- settings drawer
+
+  function drawer(open) {
+    $("settings").hidden = !open;
+    $("settings-toggle").setAttribute("aria-expanded", open ? "true" : "false");
+    $("settings-toggle").classList.toggle("on", open);
+    try { localStorage.setItem(STORE + ":settings-open", open ? "1" : ""); } catch (e) {}
+  }
+
+  $("settings-toggle").addEventListener("click", function () {
+    drawer($("settings").hidden);
+  });
+
   // ------------------------------------------------------------- drawing
 
   function draw() {
     drawPlaylists();
     drawItems();
+    drawLibrary();
     drawShape();
   }
 
@@ -160,6 +188,7 @@
         selected = playlist.id;
         highlight();
         drawItems();
+        drawLibrary();
       });
       name.addEventListener("keydown", function (e) {
         if (e.key === "Enter") { e.preventDefault(); name.blur(); }
@@ -200,8 +229,16 @@
       row.appendChild(del);
 
       row.addEventListener("click", function (e) {
-        if (e.target === row || e.target.classList.contains("grab")) { selected = playlist.id; draw(); }
+        if (e.target === row || e.target.classList.contains("grab")) {
+          selected = playlist.id;
+          draw();
+        }
       });
+
+      // A library file dropped on a playlist row joins that playlist,
+      // whether or not it is the one being edited.
+      dropTarget(row, function (src) { add(playlist, src); });
+
       list.appendChild(row);
     });
   }
@@ -229,10 +266,11 @@
       return;
     }
     $("contents-hint").textContent =
-      "Videos in \u201c" + playlist.name + "\u201d play in this order, then loop.";
+      "Videos in \u201c" + playlist.name + "\u201d play in this order, then loop. " +
+      "Drag files here from the library.";
 
     if (!playlist.videos.length) {
-      list.appendChild(el("li", "empty", "This playlist is empty, so its cell shows a placeholder."));
+      list.appendChild(el("li", "empty", "Empty. Drag a file in from the library, or use the manual field."));
       return;
     }
 
@@ -254,9 +292,7 @@
 
       var open = document.createElement("a");
       open.className = "meta";
-      open.href = /^https?:\/\//i.test(video.src)
-        ? video.src
-        : (data.mediaBase || "").replace(/\/+$/, "") + "/" + video.src.replace(/^\/+/, "");
+      open.href = publicUrl(video.src);
       open.target = "_blank";
       open.rel = "noopener";
       open.textContent = "test";
@@ -274,6 +310,222 @@
       list.appendChild(row);
     });
   }
+
+  function publicUrl(src) {
+    return /^https?:\/\//i.test(src)
+      ? src
+      : (data.mediaBase || "").replace(/\/+$/, "") + "/" + String(src).replace(/^\/+/, "");
+  }
+
+  // ------------------------------------------------------- drag and drop
+
+  var MIME = "application/x-wall-src";
+
+  function dropTarget(node, drop) {
+    node.addEventListener("dragover", function (e) {
+      if (!dragging) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      node.classList.add("drop-on");
+    });
+    node.addEventListener("dragleave", function () { node.classList.remove("drop-on"); });
+    node.addEventListener("drop", function (e) {
+      e.preventDefault();
+      node.classList.remove("drop-on");
+      var src = e.dataTransfer.getData(MIME) || e.dataTransfer.getData("text/plain") || dragging;
+      if (src) drop(src);
+    });
+  }
+
+  // The contents pane takes drops for whichever playlist is open.
+  dropTarget($("items"), function (src) {
+    var playlist = current();
+    if (!playlist) { say("Select a playlist first.", true); return; }
+    add(playlist, src);
+  });
+
+  function add(playlist, src) {
+    src = String(src || "").trim();
+    if (!src) return;
+    var clash = holderOf(src);
+    if (clash) {
+      say(clash === playlist
+        ? "That file is already in this playlist."
+        : "That file is already in \u201c" + clash.name + "\u201d. Each video belongs to one playlist.", true);
+      return;
+    }
+    playlist.videos.push({ src: src, name: src.split("/").pop() });
+    touched();
+  }
+
+  // ------------------------------------------------------- bunny library
+
+  function storageHost(region) {
+    return (region ? region + "." : "") + "storage.bunnycdn.com";
+  }
+
+  function encodePath(path) {
+    return String(path).split("/").filter(Boolean).map(encodeURIComponent).join("/");
+  }
+
+  function listDir(zone, pass, region, path) {
+    var url = "https://" + storageHost(region) + "/" + encodeURIComponent(zone) + "/" +
+      (path ? encodePath(path) + "/" : "");
+    return fetch(url, { headers: { AccessKey: pass }, cache: "no-store" })
+      .then(function (r) {
+        if (r.status === 401) throw new Error("the storage password was refused");
+        if (r.status === 404) throw new Error("no such storage zone or folder");
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      });
+  }
+
+  // Depth-limited walk. Folders are visited one after another rather than all
+  // at once, so a large zone does not open a hundred sockets.
+  function walk(zone, pass, region, path, depth, out) {
+    return listDir(zone, pass, region, path).then(function (entries) {
+      var folders = [];
+      (entries || []).forEach(function (e) {
+        var rel = (path ? path + "/" : "") + e.ObjectName;
+        if (e.IsDirectory) { if (depth > 0) folders.push(rel); return; }
+        if (out.length < LIB_MAX && VIDEO.test(e.ObjectName)) {
+          out.push({ src: rel, size: e.Length, at: e.LastChanged });
+        }
+      });
+      return folders.reduce(function (chain, folder) {
+        return chain.then(function () {
+          if (out.length >= LIB_MAX) return null;
+          return walk(zone, pass, region, folder, depth - 1, out);
+        });
+      }, Promise.resolve());
+    });
+  }
+
+  function loadLibrary(quiet) {
+    var zone = $("sz-name").value.trim();
+    var pass = $("sz-key").value.trim();
+    var region = $("sz-region").value;
+
+    if (!zone || !pass) {
+      if (!quiet) say("Set the storage zone name and password in Settings.", true);
+      return;
+    }
+    settings({ szone: zone, sregion: region, skey: pass });
+
+    var button = $("lib-refresh");
+    button.disabled = true;
+    $("lib-note").textContent = "Reading the storage zone\u2026";
+    $("lib-note").className = "note";
+
+    var found = [];
+    walk(zone, pass, region, "", LIB_DEPTH, found)
+      .then(function () {
+        found.sort(function (a, b) { return a.src.localeCompare(b.src); });
+        library = found;
+        try { localStorage.setItem(STORE + ":lib", JSON.stringify(library)); } catch (e) {}
+        drawLibrary();
+      })
+      .catch(function (err) {
+        // A TypeError here is the browser refusing the response, which on this
+        // endpoint means no CORS headers came back rather than a bad password.
+        var blocked = err instanceof TypeError;
+        $("lib-note").className = "note alert";
+        $("lib-note").textContent = blocked
+          ? "The browser blocked the request to storage.bunnycdn.com before any response arrived. That is a CORS refusal, not a wrong password. Paths can still be typed in by hand."
+          : "Could not list the zone: " + err.message + ".";
+        if (!quiet) say("Storage listing failed.", true);
+      })
+      .then(function () { button.disabled = false; });
+  }
+
+  function drawLibrary() {
+    var list = $("library");
+    var note = $("lib-note");
+    var find = $("lib-find").value.trim().toLowerCase();
+    list.innerHTML = "";
+
+    if (!library.length) {
+      if (!/blocked|Could not/.test(note.textContent)) {
+        note.className = "note";
+        note.textContent = $("sz-name").value.trim()
+          ? "No video files listed yet. Press Refresh."
+          : "Add your storage zone details in Settings to list the files here.";
+      }
+      return;
+    }
+
+    var playlist = current();
+    var rows = library.filter(function (f) {
+      return !find || f.src.toLowerCase().indexOf(find) !== -1;
+    });
+
+    note.className = "note";
+    note.textContent = rows.length + " of " + library.length + " file" +
+      (library.length === 1 ? "" : "s") +
+      (playlist ? ". Drag onto a playlist, or press +." : ". Select a playlist to add files.");
+
+    if (!rows.length) { list.appendChild(el("li", "empty", "Nothing matches that filter.")); return; }
+
+    rows.forEach(function (file) {
+      var holder = holderOf(file.src);
+      var row = el("li", "row lib-row");
+      if (holder) row.classList.add("used");
+      row.draggable = true;
+      row.dataset.src = file.src;
+
+      row.addEventListener("dragstart", function (e) {
+        dragging = file.src;
+        e.dataTransfer.effectAllowed = "copy";
+        e.dataTransfer.setData(MIME, file.src);
+        e.dataTransfer.setData("text/plain", file.src);
+        row.classList.add("lifting");
+      });
+      row.addEventListener("dragend", function () {
+        dragging = null;
+        row.classList.remove("lifting");
+      });
+
+      row.appendChild(el("span", "grab", "\u2237"));
+
+      var text = el("span", "pick", file.src);
+      text.title = file.src + (file.size ? "  \u00b7  " + size(file.size) : "");
+      row.appendChild(text);
+
+      row.appendChild(el("span", "meta", size(file.size)));
+
+      if (holder) {
+        var used = el("span", "meta flag", "in " + holder.name);
+        used.title = "Already on the wall. A file belongs to one playlist only.";
+        row.appendChild(used);
+      }
+
+      var open = document.createElement("a");
+      open.className = "meta";
+      open.href = publicUrl(file.src);
+      open.target = "_blank";
+      open.rel = "noopener";
+      open.textContent = "test";
+      row.appendChild(open);
+
+      var go = el("button", "tiny", "+");
+      go.type = "button";
+      go.title = playlist ? "Add to " + playlist.name : "Select a playlist first";
+      go.disabled = !playlist || !!holder;
+      go.addEventListener("click", function () { if (playlist) add(playlist, file.src); });
+      row.appendChild(go);
+
+      list.appendChild(row);
+    });
+  }
+
+  $("lib-refresh").addEventListener("click", function () { loadLibrary(false); });
+  $("sz-load").addEventListener("click", function () { loadLibrary(false); });
+  $("lib-find").addEventListener("input", drawLibrary);
+  $("sz-forget").addEventListener("click", function () {
+    settings({ skey: "" });
+    $("sz-key").value = "";
+    say("Storage password cleared from this browser.");
+  });
 
   // ------------------------------------------------------------- actions
 
@@ -354,7 +606,11 @@
     var branch = $("gh-branch").value.trim() || "main";
     var token = $("gh-token").value.trim();
 
-    if (!owner || !repo || !token) { say("Owner, repository and token are all required.", true); return; }
+    if (!owner || !repo || !token) {
+      drawer(true);
+      say("Owner, repository and token are all required.", true);
+      return;
+    }
     settings({ owner: owner, repo: repo, branch: branch, token: token });
 
     var button = $("publish");
@@ -402,15 +658,15 @@
       .then(function () {
         dirty = false;
         say("Published. GitHub Pages usually rebuilds within a minute.");
-        $("publish-note").textContent = "Published. Reload the wall in a minute to see it.";
-        $("publish-note").className = "note";
+        $("publish-note").textContent = "published";
+        $("publish-note").className = "meta";
       })
       .catch(function (err) {
         say("Publish failed: " + err.message, true);
       })
       .then(function () {
         button.disabled = false;
-        button.textContent = "Publish to GitHub";
+        button.textContent = "Publish";
       });
   });
 
@@ -460,6 +716,16 @@
     $("gh-branch").value = saved.branch || "main";
     $("gh-token").value = saved.token || "";
 
+    $("sz-name").value = saved.szone || "";
+    $("sz-region").value = saved.sregion || "";
+    $("sz-key").value = saved.skey || "";
+
+    // The last listing is kept so the pane is populated on load without
+    // going back to Bunny. Refresh re-reads the zone.
+    try { library = JSON.parse(localStorage.getItem(STORE + ":lib") || "[]"); } catch (e) { library = []; }
+
+    try { drawer(!!localStorage.getItem(STORE + ":settings-open")); } catch (e) {}
+
     var counts = {}, repeats = 0;
     data.playlists.forEach(function (p) {
       p.videos.forEach(function (v) {
@@ -473,11 +739,14 @@
         " more than once. They are flagged in the contents pane.", true);
     }
 
-    if (dirty) {
-      $("publish-note").textContent = "Unpublished changes. They live in this browser until you publish.";
-      $("publish-note").className = "note alert";
-    }
+    $("publish-note").textContent = dirty ? "unpublished changes" : "";
+    $("publish-note").className = dirty ? "meta alert" : "meta";
+
     draw();
+
+    // A saved password means the zone was browsable last time, so refresh
+    // quietly in the background rather than showing a stale list.
+    if (saved.szone && saved.skey) loadLibrary(true);
   }
 
   fetch(FILE + "?v=" + Date.now(), { cache: "no-store" })
