@@ -324,13 +324,41 @@ html, body {
   .cell-tv { transition: none; }
 }
 
+/* The overlay is the same set, larger. --bz is the bezel unit: the frame
+   images are drawn at 27px to the unit, so 32.4px is 120% of their native
+   size and the ceiling before the moulding starts to go soft. The picture is
+   capped as well, otherwise a 32px bezel around a full-screen video reads as
+   a hairline rather than a television. */
+.stage-set {
+  --bz: min(32.4px, 5vmin);
+  --bz-b: calc(var(--bz) * 2.032);
+  --led-right:  calc(var(--bz) * 1.93);
+  --led-bottom: calc(var(--bz) * 0.38);
+  --led-width:  calc(var(--bz) * 0.81);
+  --led-height: calc(var(--bz) * 0.57);
+
+  /* Picture width, capped three ways: a share of the window, a hard ceiling,
+     and whatever width is left once the frame has taken its share of the
+     height. 2.798bz is the top and bottom insets, 1.992bz the two sides. */
+  --screen-w: min(62vw, 780px, calc((72dvh - var(--bz) * 2.798) * 16 / 9));
+
+  position: relative;
+  isolation: isolate;
+  width: calc(var(--screen-w) + var(--bz) * 1.992);
+  height: calc(var(--screen-w) * 9 / 16 + var(--bz) * 2.798);
+  cursor: auto;
+}
+
+/* No vignette over the player: it would sit on the control bar. */
+.stage-set .cell-screen { background: #000; }
+.stage-set .cell-screen::after { content: none; }
+
 .stage {
-  width: 92vw;
-  height: 86dvh;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   background: #000;
   display: block;
-  cursor: auto;
 }
 
 .stage-close {
@@ -374,5 +402,8 @@ html, body {
     height: auto;
     min-height: 100dvh;
   }
-  .stage { width: 96vw; height: 68dvh; }
+  .stage-set {
+    --bz: min(24px, 6.5vmin);
+    --screen-w: min(90vw, calc((62dvh - var(--bz) * 2.798) * 16 / 9));
+  }
 }

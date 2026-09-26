@@ -8,6 +8,8 @@
   var grid = document.getElementById("grid");
   var overlay = document.getElementById("overlay");
   var stage = document.getElementById("stage");
+  var stageSet = document.getElementById("stage-set");
+  var stageLed = document.getElementById("stage-led");
   var stageLabel = document.getElementById("stage-label");
   var closeBtn = document.getElementById("stage-close");
 
@@ -323,11 +325,15 @@
   // against the bottom-right corner image, so it tracks the bezel at any
   // cell size. Hidden from screen readers: .cell-name already carries the
   // full playlist name.
+  function ledText(name) {
+    return String(name || "").trim().slice(0, 4).toUpperCase();
+  }
+
   function led(name) {
     var p = document.createElement("p");
     p.className = "cell-led";
     p.setAttribute("aria-hidden", "true");
-    p.textContent = String(name || "").trim().slice(0, 4).toUpperCase();
+    p.textContent = ledText(name);
     return p;
   }
 
@@ -527,6 +533,7 @@
     current = playlist;
     queue = playlist.videos;
     index = resumeGet(playlist.id, queue.length);
+    stageLed.textContent = ledText(playlist.name);
     overlay.hidden = false;
     overlay.classList.add("is-open");
     document.documentElement.style.overflow = "hidden";
@@ -573,7 +580,7 @@
 
   // Clicking the surround closes; clicks on the player belong to its controls.
   overlay.addEventListener("click", close);
-  stage.addEventListener("click", function (e) { e.stopPropagation(); });
+  stageSet.addEventListener("click", function (e) { e.stopPropagation(); });
   closeBtn.addEventListener("click", function (e) { e.stopPropagation(); close(); });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && overlay.classList.contains("is-open")) close();

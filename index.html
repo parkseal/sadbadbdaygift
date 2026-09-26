@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>channels</title>
-<link rel="stylesheet" href="assets/wall.css?v=3">
+<link rel="stylesheet" href="assets/wall.css?v=4">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
@@ -14,11 +14,20 @@
 <main id="grid" class="grid" aria-label="Playlists"></main>
 
 <div id="overlay" class="overlay" hidden role="dialog" aria-modal="true" aria-label="Now playing">
-  <video id="stage" class="stage" playsinline controls preload="metadata"></video>
+  <div id="stage-set" class="stage-set">
+    <div class="cell-screen">
+      <video id="stage" class="stage" playsinline controls preload="metadata"></video>
+    </div>
+    <div class="cell-frame" aria-hidden="true">
+      <i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i>
+      <i class="tl"></i><i class="tr"></i><i class="bl"></i><i class="br"></i>
+    </div>
+    <p id="stage-led" class="cell-led" aria-hidden="true"></p>
+  </div>
   <p id="stage-label" class="stage-label"></p>
   <button id="stage-close" class="stage-close" type="button" aria-label="Close">Close</button>
 </div>
 
-<script src="assets/wall.js?v=3"></script>
+<script src="assets/wall.js?v=4"></script>
 </body>
 </html>
