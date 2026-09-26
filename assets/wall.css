@@ -1,5 +1,5 @@
 :root {
-  --gutter: 10px;
+  --gutter: 8px;
   --frame: max(30px, 3vw);   /* black margin around the whole wall */
   --ink: #101215;
   --cell: #191c21;
@@ -337,15 +337,25 @@ html, body {
   --led-width:  calc(var(--bz) * 0.81);
   --led-height: calc(var(--bz) * 0.57);
 
+  /* The opening takes the shape of the file, so nothing is cropped and a
+     portrait clip is not pillarboxed down to a stamp. wall.js writes --ar
+     from the video's own dimensions once its metadata arrives; the edges of
+     the bezel tile, so the set can be any shape. */
+  --ar: 1.7778;
+
   /* Picture width, capped three ways: a share of the window, a hard ceiling,
      and whatever width is left once the frame has taken its share of the
      height. 2.798bz is the top and bottom insets, 1.992bz the two sides. */
-  --screen-w: min(62vw, 780px, calc((72dvh - var(--bz) * 2.798) * 16 / 9));
+  --screen-w: min(
+    calc(92vw - var(--bz) * 1.992),
+    1560px,
+    calc((90dvh - var(--bz) * 2.798) * var(--ar))
+  );
 
   position: relative;
   isolation: isolate;
   width: calc(var(--screen-w) + var(--bz) * 1.992);
-  height: calc(var(--screen-w) * 9 / 16 + var(--bz) * 2.798);
+  height: calc(var(--screen-w) / var(--ar) + var(--bz) * 2.798);
   cursor: auto;
 }
 
@@ -404,6 +414,9 @@ html, body {
   }
   .stage-set {
     --bz: min(24px, 6.5vmin);
-    --screen-w: min(90vw, calc((62dvh - var(--bz) * 2.798) * 16 / 9));
+    --screen-w: min(
+      calc(96vw - var(--bz) * 1.992),
+      calc((82dvh - var(--bz) * 2.798) * var(--ar))
+    );
   }
 }

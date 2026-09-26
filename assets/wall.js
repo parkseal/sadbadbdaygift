@@ -552,6 +552,12 @@
     stage.play().catch(noop);
   }
 
+  stage.addEventListener("loadedmetadata", function () {
+    if (stage.videoWidth && stage.videoHeight) {
+      stageSet.style.setProperty("--ar", stage.videoWidth / stage.videoHeight);
+    }
+  });
+
   stage.addEventListener("error", function () {
     stageLabel.className = "stage-label bad";
     stageLabel.textContent = "Could not load this file. Check the path in the admin page: " +
