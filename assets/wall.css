@@ -47,39 +47,33 @@ html, body {
   isolation: isolate;
   container-type: size;
   --bz: 27px;
-  --bz-b: calc(var(--bz) * 2.032);
-  --led-right:  calc(var(--bz) * 1.93);
-  --led-bottom: calc(var(--bz) * 0.38);
-  --led-width:  calc(var(--bz) * 0.81);
-  --led-height: calc(var(--bz) * 0.57);
+    --bz-b: calc(var(--bz) * 2.032);
+    --led-right: calc(var(--bz) * 1.82);
+    --led-bottom: calc(var(--bz) * 0.34);
+    --led-width: calc(var(--bz) * 0.81);
+    --led-height: calc(var(--bz) * 0.57);
 }
 
 @supports (width: 1cqmin) {
   .cell { --bz: clamp(13.5px, 8.1cqmin, 60px); }
 }
 
+
 .cell-led {
-  position: absolute;
-  right: var(--led-right);
-  bottom: var(--led-bottom);
-  width: var(--led-width);
-  height: var(--led-height);
-  z-index: 4;                /* above the bezel, which is 3 */
-  margin: 0;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  pointer-events: none;
-  white-space: nowrap;
-  font-family: "VT323", ui-monospace, "Courier New", monospace;
-  font-size: calc(var(--led-height) * 1.15);
-  line-height: 1;
-  letter-spacing: .06em;
-  color: #ff3a06;
-  text-shadow:
-    0 0 1px #ff6a22,
-    0 0 4px rgba(255, 70, 0, .8),
-    0 0 11px rgba(255, 45, 0, .5);
+    position: absolute;
+    right: var(--led-right);
+    bottom: var(--led-bottom);
+    width: var(--led-width);
+    height: var(--led-height);
+    z-index: 4;
+    margin: 0;
+    pointer-events: none;
+    white-space: nowrap;
+    font-family: "VT323", ui-monospace, "Courier New", monospace;
+    font-size: var(--led-height);
+    letter-spacing: .06em;
+    color: #ff3a06;
+    text-shadow: 0 0 3px #ff6a22, 0 0 1px rgba(255, 70, 0, .5), 0 0 11px rgba(255, 45, 0, .86);
 }
 
 .cell-screen {
