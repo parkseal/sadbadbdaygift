@@ -63,6 +63,15 @@
       <button id="sz-load" type="button">Load file list</button>
       <button id="sz-forget" type="button" class="danger">Forget password</button>
     </div>
+
+    <label class="field">
+      <span class="toggle"><input id="lib-thumbs" type="checkbox" checked> Show thumbnails</span>
+      <em>Each thumbnail is grabbed from the file itself and cached in this browser, so a file is only fetched once. Turn this off if the pane feels slow.</em>
+    </label>
+    <div class="new-row">
+      <button id="thumb-clear" type="button">Clear thumbnail cache</button>
+      <span id="thumb-note" class="meta"></span>
+    </div>
   </div>
 
   <div class="set-col">
@@ -84,6 +93,18 @@
 </section>
 
 <main class="panes">
+
+  <section class="pane">
+    <h2>Library</h2>
+    <p class="note" id="lib-note">Add your storage zone details in Settings to list the files here.</p>
+
+    <div class="new-row">
+      <input id="lib-find" type="text" placeholder="Filter by name" autocomplete="off">
+      <button id="lib-refresh" type="button">Refresh</button>
+    </div>
+
+    <ol id="library" class="rows"></ol>
+  </section>
 
   <section class="pane">
     <h2>Playlists</h2>
@@ -115,18 +136,6 @@
     </div>
 
     <ol id="items" class="rows dropzone"></ol>
-  </section>
-
-  <section class="pane">
-    <h2>Library</h2>
-    <p class="note" id="lib-note">Add your storage zone details in Settings to list the files here.</p>
-
-    <div class="new-row">
-      <input id="lib-find" type="text" placeholder="Filter by name" autocomplete="off">
-      <button id="lib-refresh" type="button">Refresh</button>
-    </div>
-
-    <ol id="library" class="rows"></ol>
   </section>
 
 </main>

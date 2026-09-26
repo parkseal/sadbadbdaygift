@@ -130,6 +130,10 @@
   // ------------------------------------------------------------- drawing
 
   function draw() {
+    // Old rows are on their way out, so stop watching them and drop any work
+    // queued against boxes that are about to be detached.
+    if (watcher) watcher.disconnect();
+    thumbQueue = [];
     drawPlaylists();
     drawItems();
     drawLibrary();
@@ -277,6 +281,7 @@
     playlist.videos.forEach(function (video, i) {
       var row = el("li", "row");
       row.appendChild(el("span", "grab", (i + 1) + "."));
+      row.appendChild(thumbNode(video.src, true));
 
       var text = el("span", "pick", video.name || video.src);
       text.title = video.src;
@@ -316,6 +321,225 @@
       ? src
       : (data.mediaBase || "").replace(/\/+$/, "") + "/" + String(src).replace(/^\/+/, "");
   }
+
+  // -------------------------------------------------------- thumbnails
+
+  // A frame is taken from the file itself, drawn to a canvas and kept as a
+  // small JPEG in this browser, so a file is only ever fetched once. That
+  // needs the pull zone to send CORS headers for video extensions; without
+  // them the canvas is tainted and the grab is refused, so the pane falls
+  // back to a muted <video> parked on its opening frame, which looks the
+  // same but is fetched afresh on every load.
+  var THUMB_W = 160, THUMB_H = 90;
+  var THUMB_CAP = 600;          // cached frames, to stay inside localStorage
+  var THUMB_PAR = 3;            // files decoded at once
+
+  var thumbs = {};
+  var thumbOn = true;
+  var thumbCors = true;
+  var thumbQueue = [];
+  var thumbBusy = 0;
+  var watcher = null;
+  var thumbWrite = null;
+
+  function saveThumbs() {
+    clearTimeout(thumbWrite);
+    thumbWrite = setTimeout(function () {
+      try { localStorage.setItem(STORE + ":thumbs", JSON.stringify(thumbs)); }
+      catch (e) { thumbs = {}; }   // quota: start again rather than half-write
+      countThumbs();
+    }, 400);
+  }
+
+  function countThumbs() {
+    var n = Object.keys(thumbs).length;
+    $("thumb-note").textContent = n ? n + " cached" : "";
+  }
+
+  function image(url) {
+    var img = document.createElement("img");
+    img.src = url;
+    img.alt = "";
+    img.loading = "lazy";
+    return img;
+  }
+
+  // The no-canvas fallback: the browser paints the frame, nothing is stored.
+  function liveFrame(src) {
+    var v = document.createElement("video");
+    v.muted = true;
+    v.playsInline = true;
+    v.preload = "metadata";
+    v.setAttribute("aria-hidden", "true");
+    v.src = publicUrl(src) + (/#t=/.test(src) ? "" : "#t=0.4");
+    return v;
+  }
+
+  function thumbNode(src, small) {
+    var box = el("div", small ? "thumb small" : "thumb");
+    if (!thumbOn) { box.classList.add("off"); return box; }
+    if (thumbs[src]) { box.appendChild(image(thumbs[src])); return box; }
+    if (!thumbCors) { box.appendChild(liveFrame(src)); return box; }
+    box.classList.add("waiting");
+    if (!window.IntersectionObserver) { enqueue(box, src); return box; }
+    box._src = src;
+    observer().observe(box);
+    return box;
+  }
+
+  // Only rows that come near the viewport are decoded, so a zone with three
+  // hundred files does not pull three hundred headers on load.
+  function observer() {
+    if (watcher) return watcher;
+    watcher = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        watcher.unobserve(entry.target);
+        enqueue(entry.target, entry.target._src);
+      });
+    }, { rootMargin: "300px" });
+    return watcher;
+  }
+
+  function enqueue(box, src) {
+    thumbQueue.push({ box: box, src: src });
+    pump();
+  }
+
+  function release() {
+    thumbBusy -= 1;
+    pump();
+  }
+
+  function pump() {
+    while (thumbBusy < THUMB_PAR && thumbQueue.length) {
+      var job = thumbQueue.shift();
+      if (!job.box.isConnected || !job.src) continue;
+      if (thumbs[job.src]) { fill(job.box, thumbs[job.src]); continue; }
+      thumbBusy += 1;
+      grab(job.src, job.box);
+    }
+  }
+
+  function fill(box, url) {
+    box.classList.remove("waiting");
+    box.innerHTML = "";
+    box.appendChild(image(url));
+  }
+
+  function grab(src, box) {
+    capture(src, thumbCors, function (url) {
+      if (Object.keys(thumbs).length < THUMB_CAP) { thumbs[src] = url; saveThumbs(); }
+      fill(box, url);
+      release();
+    }, function () {
+      if (!thumbCors) { dead(box); release(); return; }
+      // Second opinion without the CORS request. If the file loads that way,
+      // the pull zone simply is not sending the header for this extension,
+      // which is a setting rather than a broken file.
+      probe(src, function (ok) {
+        if (!ok) { dead(box); release(); return; }
+        thumbCors = false;
+        settings({ thumbcors: "no" });
+        thumbQueue = [];
+        say("The pull zone sends no CORS header for these files, so frames cannot be cached. " +
+            "Showing live first frames instead. Add mp4 under Pull Zone \u203a Headers \u203a CORS to fix it.", true);
+        release();
+        draw();
+      });
+    });
+  }
+
+  function dead(box) {
+    box.classList.remove("waiting");
+    box.classList.add("bad");
+    box.title = "Could not read a frame from this file";
+  }
+
+  function capture(src, useCors, done, fail) {
+    var v = document.createElement("video");
+    if (useCors) v.crossOrigin = "anonymous";
+    v.muted = true;
+    v.playsInline = true;
+    v.preload = "auto";
+
+    var settled = false;
+    var timer = setTimeout(function () { bail(); }, 20000);
+
+    function stop() {
+      clearTimeout(timer);
+      v.removeAttribute("src");
+      try { v.load(); } catch (e) {}
+    }
+    function bail() { if (settled) return; settled = true; stop(); fail(); }
+
+    v.addEventListener("loadedmetadata", function () {
+      // A quarter of the way in, capped at a second, so a title card or a
+      // black opening frame is not what ends up in the list.
+      var at = Math.min(1, (v.duration || 4) * 0.25);
+      try { v.currentTime = isFinite(at) ? at : 0; } catch (e) { bail(); }
+    });
+
+    v.addEventListener("seeked", function () {
+      if (settled) return;
+      var canvas = document.createElement("canvas");
+      canvas.width = THUMB_W;
+      canvas.height = THUMB_H;
+      try {
+        var ctx = canvas.getContext("2d");
+        var vw = v.videoWidth || THUMB_W, vh = v.videoHeight || THUMB_H;
+        // Centre crop, so a portrait clip fills the box rather than squashing.
+        var scale = Math.max(THUMB_W / vw, THUMB_H / vh);
+        var sw = THUMB_W / scale, sh = THUMB_H / scale;
+        ctx.drawImage(v, (vw - sw) / 2, (vh - sh) / 2, sw, sh, 0, 0, THUMB_W, THUMB_H);
+        var url = canvas.toDataURL("image/jpeg", 0.6);
+        settled = true;
+        stop();
+        done(url);
+      } catch (e) { bail(); }        // tainted canvas
+    });
+
+    v.addEventListener("error", bail);
+    v.src = publicUrl(src);
+    v.load();
+  }
+
+  // Does the file load at all when nothing is asked of CORS?
+  function probe(src, cb) {
+    var v = document.createElement("video");
+    v.muted = true;
+    v.preload = "metadata";
+    var settled = false;
+    var timer = setTimeout(function () { finish(false); }, 12000);
+    function finish(ok) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      v.removeAttribute("src");
+      try { v.load(); } catch (e) {}
+      cb(ok);
+    }
+    v.addEventListener("loadedmetadata", function () { finish(true); });
+    v.addEventListener("error", function () { finish(false); });
+    v.src = publicUrl(src);
+    v.load();
+  }
+
+  $("lib-thumbs").addEventListener("change", function () {
+    thumbOn = $("lib-thumbs").checked;
+    settings({ thumbon: thumbOn ? "yes" : "no" });
+    thumbQueue = [];
+    draw();
+  });
+
+  $("thumb-clear").addEventListener("click", function () {
+    thumbs = {};
+    try { localStorage.removeItem(STORE + ":thumbs"); } catch (e) {}
+    thumbCors = true;
+    settings({ thumbcors: "yes" });
+    countThumbs();
+    draw();
+  });
 
   // ------------------------------------------------------- drag and drop
 
@@ -486,6 +710,7 @@
       });
 
       row.appendChild(el("span", "grab", "\u2237"));
+      row.appendChild(thumbNode(file.src, false));
 
       var text = el("span", "pick", file.src);
       text.title = file.src + (file.size ? "  \u00b7  " + size(file.size) : "");
@@ -719,6 +944,12 @@
     $("sz-name").value = saved.szone || "";
     $("sz-region").value = saved.sregion || "";
     $("sz-key").value = saved.skey || "";
+
+    thumbOn = saved.thumbon !== "no";
+    thumbCors = saved.thumbcors !== "no";
+    $("lib-thumbs").checked = thumbOn;
+    try { thumbs = JSON.parse(localStorage.getItem(STORE + ":thumbs") || "{}"); } catch (e) { thumbs = {}; }
+    countThumbs();
 
     // The last listing is kept so the pane is populated on load without
     // going back to Bunny. Refresh re-reads the zone.
