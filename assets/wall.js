@@ -323,7 +323,7 @@
 
   // Four-character readout on the front panel of the set. Positioned by CSS
   // against the bottom-right corner image, so it tracks the bezel at any
-  // cell size. Hidden from screen readers: .cell-name already carries the
+  // cell size. Hidden from screen readers: the cell's aria-label carries the
   // full playlist name.
   function ledText(name) {
     return String(name || "").trim().slice(0, 4).toUpperCase();
@@ -431,13 +431,6 @@
 
     video.addEventListener("error", function () {
       button.classList.add("is-broken");
-      var flag = label.querySelector(".cell-flag");
-      if (!flag) {
-        flag = document.createElement("span");
-        flag.className = "cell-flag";
-        label.appendChild(flag);
-      }
-      flag.textContent = "  file not loading";
       button.title = "Could not load " + video.src;
     });
 
@@ -451,14 +444,13 @@
     });
     previews.push(video);
 
-    var label = document.createElement("p");
-    label.className = "cell-name";
-    label.textContent = playlist.name;
+    // Nothing on the screen names the playlist any more, so the button
+    // carries the name for screen readers.
+    button.setAttribute("aria-label", playlist.name);
 
     var screen = screenOf(button);
     screen.appendChild(video);
     TV.attach(screen);
-    screen.appendChild(label);
     screen.appendChild(counter);
     button.appendChild(frame());
     button.appendChild(led(playlist.name));
@@ -469,12 +461,8 @@
   function emptyCell(playlist) {
     var div = document.createElement("div");
     div.className = "cell is-empty";
-    var screen = screenOf(div);
-    TV.attach(screen);
-    var label = document.createElement("p");
-    label.className = "cell-name";
-    label.textContent = playlist.name + " has no videos yet";
-    screen.appendChild(label);
+    div.title = playlist.name + " has no videos yet";
+    TV.attach(screenOf(div));
     div.appendChild(frame());
     div.appendChild(led(playlist.name));
     return div;

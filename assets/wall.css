@@ -173,14 +173,14 @@ html, body {
   background-position: left top;
 }
 .cell-frame .b {
-  bottom: 0;
-  left: calc(var(--bz) * 4.855);
-  right: calc(var(--bz) * 4.798);
-  height: var(--bz-b);
-  background-image: url("frame/bottom_middle.png");
-  background-repeat: repeat-x;
-  background-size: auto 100%;
-  background-position: left bottom;
+    bottom: calc(var(--bz) * 0.14);
+    left: calc(var(--bz) * 4.855);
+    right: calc(var(--bz) * 4.798);
+    height: calc(var(--bz-b) * 0.94);
+    background-image: url(frame/bottom_middle.png);
+    background-repeat: repeat-x;
+    background-size: auto 100%;
+    background-position: left bottom;
 }
 .cell-frame .l {
   left: 0;
@@ -204,7 +204,7 @@ html, body {
 }
 
 /* Television static, one canvas per cell, drawn by wall.js. It sits above the
-   picture and below the labels, and clears when the cell is pointed at. */
+   picture and below the counter, and clears when the cell is pointed at. */
 .cell-tv {
   position: absolute;
   inset: 0;
@@ -216,25 +216,6 @@ html, body {
   opacity: var(--tv-idle);
   transition: opacity var(--tv-fade) ease;
 }
-
-.cell-name {
-  position: absolute;
-  left: .8rem;
-  bottom: .7rem;
-  right: 4.5rem;
-  z-index: 2;
-  margin: 0;
-  font-size: clamp(.8rem, 1.1vw, 1rem);
-  font-weight: 500;
-  letter-spacing: .005em;
-  line-height: 1.25;
-  text-shadow: 0 1px 3px rgba(0,0,0,.6);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cell-flag { color: #d98c7a; font-weight: 400; }
 
 .cell.is-broken .cell-screen { outline: 1px solid #5c3730; outline-offset: -1px; }
 
@@ -268,16 +249,8 @@ html, body {
   .cell:focus-visible .cell-tv { opacity: 0; }
 }
 
+/* A playlist with no videos: an inert screen carrying only its readout. */
 .cell.is-empty { cursor: default; }
-.cell.is-empty .cell-screen { display: grid; place-items: center; }
-.cell.is-empty .cell-name {
-  position: static;
-  color: var(--dim);
-  text-align: center;
-  right: auto;
-  padding: 0 1rem;
-  white-space: normal;
-}
 
 /* Unused slots in the grid: a dark, inert screen in a frame. */
 .cell.is-blank { pointer-events: none; }
