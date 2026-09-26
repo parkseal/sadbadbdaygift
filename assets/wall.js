@@ -11,6 +11,7 @@
   var stageSet = document.getElementById("stage-set");
   var stageLed = document.getElementById("stage-led");
   var stageLabel = document.getElementById("stage-label");
+  var stageIndex = document.getElementById("stage-index");
   var closeBtn = document.getElementById("stage-close");
 
   var previews = [];
@@ -358,13 +359,7 @@
     video.preload = "metadata";
     video.src = firstFrame(playlist.videos[cursor].src);
 
-    // Bottom-right position counter, e.g. "1 of 2".
-    var counter = document.createElement("p");
-    counter.className = "cell-index";
-    function mark() {
-      counter.textContent = (cursor + 1) + " of " + playlist.videos.length;
-    }
-    mark();
+    // No counter on the wall: the position is shown in the overlay only.
 
     // Hovering arms a timer rather than acting at once, so sweeping the pointer
     // across the wall wakes nothing. After the delay the cell plays, quietly.
@@ -451,7 +446,6 @@
     var screen = screenOf(button);
     screen.appendChild(video);
     TV.attach(screen);
-    screen.appendChild(counter);
     button.appendChild(frame());
     button.appendChild(led(playlist.name));
     button.addEventListener("click", function () { open(playlist); });
@@ -535,8 +529,8 @@
     if (!queue.length) return close();
     stage.src = queue[index].src;
     stageLabel.className = "stage-label";
-    stageLabel.textContent =
-      queue.length > 1 ? queue[index].name + "  \u00b7  " + (index + 1) + " of " + queue.length : "";
+    stageLabel.textContent = queue.length > 1 ? queue[index].name : "";
+    stageIndex.textContent = queue.length > 1 ? (index + 1) + " of " + queue.length : "";
     stage.play().catch(noop);
   }
 
@@ -562,6 +556,7 @@
   function close() {
     if (current) resumeSet(current.id, index);
     stage.pause();
+    stageIndex.textContent = "";
     stage.removeAttribute("src");
     stage.load();
     overlay.classList.remove("is-open");

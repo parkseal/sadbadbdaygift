@@ -8,6 +8,7 @@
   --dim: #9aa1ab;
   --tv-idle: .5;             /* how much static covers a resting cell */
   --tv-fade: .5s;           /* how long it takes to clear on hover */
+    --led-idle: .3; 
 }
 
 * { box-sizing: border-box; }
@@ -84,6 +85,8 @@ html, body {
     letter-spacing: .06em;
     color: #ff3a06;
     text-shadow: 0 0 3px #ff6a22, 0 0 1px rgba(255, 70, 0, .5), 0 0 11px rgba(255, 45, 0, .86);
+    opacity: 1;
+    transition: opacity var(--tv-fade) ease;
 }
 
 .cell-screen {
@@ -109,6 +112,16 @@ html, body {
 
     object-fit: contain;
 }
+.cell-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 calc(var(--bz) * 0.7) rgba(0, 0, 0, .78),
+    inset 0 0 calc(var(--bz) * 0.2) rgba(0, 0, 0, .6);
+}
 
 .cell-screen::after {
   content: "";
@@ -118,6 +131,7 @@ html, body {
   pointer-events: none;
   z-index: 2;
 }
+.stage-set .cell-screen::before { content: none; }
 
 /* ----------------------------------------------------------- the bezel */
 
@@ -242,7 +256,12 @@ html, body {
   white-space: nowrap;
   text-shadow: 0 1px 3px rgba(0,0,0,.6);
 }
-
+.stage-set .cell-index {
+  right: 1rem;
+  bottom: 3.4rem;
+  z-index: 3;
+  font-size: .8rem;
+}
 .cell:focus-visible { outline: none; }
 .cell:focus-visible .cell-screen { outline: 2px solid var(--text); outline-offset: -2px; }
 
@@ -256,6 +275,10 @@ html, body {
 
   .cell:hover .cell-tv,
   .cell:focus-visible .cell-tv { opacity: 0; }
+
+    .cell .cell-led { opacity: var(--led-idle); }
+  .cell:hover .cell-led,
+  .cell:focus-visible .cell-led { opacity: 1; }
 }
 
 /* A playlist with no videos: an inert screen carrying only its readout. */
