@@ -29,9 +29,19 @@ html, body {
   height: 100dvh;
   width: 100vw;
   padding: var(--frame);
+  align-content: center;
+  justify-content: center;
+
+  /* The width a cell gets from the columns, and the height a row would take
+     if the rows simply split the window. A row is given the smaller of the
+     two, so a set is never taller than it is wide: square at the skinniest,
+     landscape whenever there is width to spare. */
+  --cell-w: calc((100vw - 2 * var(--frame) - (var(--cols, 2) - 1) * var(--gutter)) / var(--cols, 2));
+  --cell-h: calc((100dvh - 2 * var(--frame) - (var(--rows, 2) - 1) * var(--gutter)) / var(--rows, 2));
+
   /* wall.js sets --cols and --rows; never smaller than 2x2 */
   grid-template-columns: repeat(var(--cols, 2), 1fr);
-  grid-template-rows: repeat(var(--rows, 2), 1fr);
+  grid-template-rows: repeat(var(--rows, 2), min(var(--cell-w), var(--cell-h)));
 }
 
 .cell {
@@ -277,6 +287,13 @@ html, body {
   place-items: center;
   background: rgba(8, 9, 11, .94);
   cursor: pointer;
+
+  /* Clear space around the set. Vertically a tenth of the window but never
+     less than 200px; horizontally the same tenth, measured against whichever
+     side is shorter so a phone is not left with a sliver of picture. */
+  --pad-y: max(10vh, 200px);
+  --pad-x: 10vmin;
+  padding: var(--pad-y) var(--pad-x);
 }
 
 .overlay[hidden] { display: none; }
@@ -291,38 +308,51 @@ html, body {
   .cell-tv { transition: none; }
 }
 
-/* The overlay is the same set, larger. --bz is the bezel unit: the frame
-   images are drawn at 27px to the unit, so 32.4px is 120% of their native
-   size and the ceiling before the moulding starts to go soft. The picture is
-   capped as well, otherwise a 32px bezel around a full-screen video reads as
-   a hairline rather than a television. */
+/* The overlay is the same set, much heavier. --bz is the bezel unit: the
+   frame images are drawn at 27px to the unit, so 105px is 3.25 times the old
+   32.4px ceiling, which is the "225% thicker" moulding. The images are being
+   run well past their native size at that width, so the grain softens on a
+   large screen; regenerating the nine frame PNGs at a higher resolution is
+   the fix if it reads badly. Everything is measured against the padded box,
+   not the window, so the set always sits inside the margin above. */
 .stage-set {
-  --bz: min(32.4px, 5vmin);
+  --avail-w: calc(100vw - 2 * var(--pad-x));
+  --avail-h: calc(100dvh - 2 * var(--pad-y));
+  --unit: min(var(--avail-w), var(--avail-h));
+
+  --bz: min(105px, calc(var(--unit) * 0.1625));
   --bz-b: calc(var(--bz) * 2.032);
   --led-right:  calc(var(--bz) * 1.93);
   --led-bottom: calc(var(--bz) * 0.38);
   --led-width:  calc(var(--bz) * 0.81);
   --led-height: calc(var(--bz) * 0.57);
 
-  /* The opening takes the shape of the file, so nothing is cropped and a
-     portrait clip is not pillarboxed down to a stamp. wall.js writes --ar
-     from the video's own dimensions once its metadata arrives; the edges of
-     the bezel tile, so the set can be any shape. */
+  /* The shape of the file, written by wall.js once metadata arrives. */
   --ar: 1.7778;
 
-  /* Picture width, capped three ways: a share of the window, a hard ceiling,
-     and whatever width is left once the frame has taken its share of the
-     height. 2.798bz is the top and bottom insets, 1.992bz the two sides. */
+  /* Picture width, capped three ways: the padded width, a hard ceiling, and
+     whatever width is left once the frame has taken its share of the padded
+     height. 2.798bz is the top and bottom insets, 1.992bz the two sides; the
+     width cap uses 2.798 as well so the square minimum below cannot push the
+     set past the margin. */
   --screen-w: min(
-    calc(92vw - var(--bz) * 1.992),
+    calc(var(--avail-w) - var(--bz) * 2.798),
     1560px,
-    calc((90dvh - var(--bz) * 2.798) * var(--ar))
+    calc((var(--unit) - var(--bz) * 2.798) * var(--ar))
   );
+
+  /* The set is square at its skinniest and landscape the rest of the time.
+     Height follows the file; width is the picture plus its sides, or the
+     height, whichever is greater. Widening the box widens the opening with
+     it, since the screen is inset from the set edges, and the video is
+     object-fit: contain on black, so a portrait clip gains side bars rather
+     than turning the television into a tower. */
+  --set-h: calc(var(--screen-w) / var(--ar) + var(--bz) * 2.798);
 
   position: relative;
   isolation: isolate;
-  width: calc(var(--screen-w) + var(--bz) * 1.992);
-  height: calc(var(--screen-w) / var(--ar) + var(--bz) * 2.798);
+  width: max(calc(var(--screen-w) + var(--bz) * 1.992), var(--set-h));
+  height: var(--set-h);
   cursor: auto;
 }
 
@@ -372,18 +402,22 @@ html, body {
 @media (max-width: 900px) {
   html, body { overflow: auto; }
   .grid {
-    /* Still at least two columns, but rows get their own height and scroll. */
+    /* Still at least two columns, but rows get their own height and scroll.
+       A row is capped at the cell width, so a set stays square or wider on a
+       narrow screen instead of stretching into a tall slot. */
+    --cell-w: calc((100vw - 2 * var(--frame) - var(--gutter)) / 2);
     grid-template-columns: repeat(2, 1fr);
     grid-template-rows: none;
-    grid-auto-rows: 30dvh;
+    grid-auto-rows: min(var(--cell-w), 30dvh);
     height: auto;
     min-height: 100dvh;
+    align-content: start;
   }
   .stage-set {
-    --bz: min(24px, 6.5vmin);
+    --bz: min(78px, calc(var(--unit) * 0.1625));
     --screen-w: min(
-      calc(96vw - var(--bz) * 1.992),
-      calc((82dvh - var(--bz) * 2.798) * var(--ar))
+      calc(var(--avail-w) - var(--bz) * 2.798),
+      calc((var(--unit) - var(--bz) * 2.798) * var(--ar))
     );
   }
 }
