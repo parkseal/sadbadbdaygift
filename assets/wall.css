@@ -37,7 +37,7 @@ html, body {
 .cell {
   position: relative;
   overflow: hidden;
-  background: var(--cell);
+  background: transparent;
   border: 0;
   padding: 0;
   cursor: pointer;
@@ -45,9 +45,40 @@ html, body {
   font: inherit;
   text-align: left;
   isolation: isolate;
+
+  /* The cell is its own container, so the bezel is measured against this
+     cell rather than the viewport and every grid shape gets the same look. */
+  container-type: size;
+
+  /* --bz is the thickness of the left and right bezel. Everything else in
+     the frame is a fixed multiple of it, taken from the source images:
+     left/right 124px, top 95px, bottom 252px, corners 546x407 (top left),
+     475x373 (top right), 602x509 and 595x509 (bottom). */
+  --bz: 18px;
 }
 
-.cell video {
+@supports (width: 1cqmin) {
+  .cell { --bz: clamp(9px, 5.4cqmin, 40px); }
+}
+
+/* --------------------------------------------------------- the picture */
+
+/* The screen sits inside the bezel opening. It is not centred in the cell:
+   the bottom of the frame is far deeper than the top, so the picture is
+   pushed upwards to match. The 1px bleed tucks the video edges under the
+   frame so no hairline of background shows at the join. */
+.cell-screen {
+  position: absolute;
+  top: calc(var(--bz) * 0.766 - 1px);
+  left: calc(var(--bz) * 0.996 - 1px);
+  right: calc(var(--bz) * 0.996 - 1px);
+  bottom: calc(var(--bz) * 2.032 - 1px);
+  overflow: hidden;
+  background: var(--cell);
+  z-index: 0;
+}
+
+.cell-screen video {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -55,12 +86,103 @@ html, body {
   transform: scale(1.001); /* hides sub-pixel edge seams */
 }
 
-.cell::after {
+.cell-screen::after {
   content: "";
   position: absolute;
   inset: 0;
   background: linear-gradient(to top, rgba(8,9,11,.72) 0%, rgba(8,9,11,0) 38%);
   pointer-events: none;
+  z-index: 2;
+}
+
+/* ----------------------------------------------------------- the bezel */
+
+/* Nine pieces. The four corners keep their own proportions at every size;
+   the four edges repeat along their length, so a cell can be any shape
+   without the moulding stretching. */
+.cell-frame {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.cell-frame > i {
+  position: absolute;
+  display: block;
+  background-repeat: no-repeat;
+}
+
+.cell-frame .tl {
+  top: 0; left: 0;
+  width: calc(var(--bz) * 4.403);
+  height: calc(var(--bz) * 3.282);
+  background-image: url("frame/top_left.png");
+  background-size: 100% 100%;
+}
+.cell-frame .tr {
+  top: 0; right: 0;
+  width: calc(var(--bz) * 3.831);
+  height: calc(var(--bz) * 3.008);
+  background-image: url("frame/top_right.png");
+  background-size: 100% 100%;
+}
+.cell-frame .bl {
+  bottom: 0; left: 0;
+  width: calc(var(--bz) * 4.855);
+  height: calc(var(--bz) * 4.105);
+  background-image: url("frame/bottom_left.png");
+  background-size: 100% 100%;
+}
+.cell-frame .br {
+  bottom: 0; right: 0;
+  width: calc(var(--bz) * 4.798);
+  height: calc(var(--bz) * 4.105);
+  background-image: url("frame/bottom_right.png");
+  background-size: 100% 100%;
+}
+
+/* Edges tile. background-size keeps one axis locked to the strip depth and
+   lets the other run free, so the grain never squashes. */
+.cell-frame .t {
+  top: 0;
+  left: calc(var(--bz) * 4.403);
+  right: calc(var(--bz) * 3.831);
+  height: calc(var(--bz) * 0.790);
+  background-image: url("frame/top_middle.png");
+  background-repeat: repeat-x;
+  background-size: auto 100%;
+  background-position: left top;
+}
+.cell-frame .b {
+  bottom: 0;
+  left: calc(var(--bz) * 4.855);
+  right: calc(var(--bz) * 4.798);
+  height: calc(var(--bz) * 2.032);
+  background-image: url("frame/bottom-middle.png");
+  background-repeat: repeat-x;
+  background-size: auto 100%;
+  background-position: left bottom;
+}
+.cell-frame .l {
+  left: 0;
+  top: calc(var(--bz) * 3.282);
+  bottom: calc(var(--bz) * 4.105);
+  width: calc(var(--bz) * 1.008);
+  background-image: url("frame/left_middle.png");
+  background-repeat: repeat-y;
+  background-size: 100% auto;
+  background-position: left top;
+}
+.cell-frame .r {
+  right: 0;
+  top: calc(var(--bz) * 3.008);
+  bottom: calc(var(--bz) * 4.105);
+  width: calc(var(--bz) * 1.024);
+  background-image: url("frame/right_middle.png");
+  background-repeat: repeat-y;
+  background-size: 100% auto;
+  background-position: right top;
 }
 
 /* Television static, one canvas per cell, drawn by wall.js. It sits above the
@@ -79,9 +201,9 @@ html, body {
 
 .cell-name {
   position: absolute;
-  left: 1rem;
-  bottom: .85rem;
-  right: 5rem;
+  left: .8rem;
+  bottom: .7rem;
+  right: 4.5rem;
   z-index: 2;
   margin: 0;
   font-size: clamp(.8rem, 1.1vw, 1rem);
@@ -96,13 +218,13 @@ html, body {
 
 .cell-flag { color: #d98c7a; font-weight: 400; }
 
-.cell.is-broken { outline: 1px solid #5c3730; outline-offset: -1px; }
+.cell.is-broken .cell-screen { outline: 1px solid #5c3730; outline-offset: -1px; }
 
-/* Position within the playlist, bottom right of the cell. */
+/* Position within the playlist, bottom right of the screen. */
 .cell-index {
   position: absolute;
-  right: 1rem;
-  bottom: .85rem;
+  right: .8rem;
+  bottom: .7rem;
   z-index: 2;
   margin: 0;
   color: var(--dim);
@@ -113,34 +235,36 @@ html, body {
   text-shadow: 0 1px 3px rgba(0,0,0,.6);
 }
 
-.cell:focus-visible {
-  outline: 2px solid var(--text);
-  outline-offset: -2px;
-}
+.cell:focus-visible { outline: none; }
+.cell:focus-visible .cell-screen { outline: 2px solid var(--text); outline-offset: -2px; }
 
 /* Pointing at one cell dims the rest, so the wall reads as one surface
    rather than nine separate cards. */
 @media (hover: hover) and (pointer: fine) {
-  .cell video { transition: opacity .2s ease; }
-  .grid:hover .cell video { opacity: .45; }
-  .grid .cell:hover video,
-  .grid .cell:focus-visible video { opacity: 1; }
+  .cell-screen video { transition: opacity .2s ease; }
+  .grid:hover .cell-screen video { opacity: .45; }
+  .grid .cell:hover .cell-screen video,
+  .grid .cell:focus-visible .cell-screen video { opacity: 1; }
 
   .cell:hover .cell-tv,
   .cell:focus-visible .cell-tv { opacity: 0; }
 }
 
-.cell.is-empty {
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--edge);
-  cursor: default;
+.cell.is-empty { cursor: default; }
+.cell.is-empty .cell-screen { display: grid; place-items: center; }
+.cell.is-empty .cell-name {
+  position: static;
+  color: var(--dim);
+  text-align: center;
+  right: auto;
+  padding: 0 1rem;
+  white-space: normal;
 }
-.cell.is-empty .cell-name { position: static; color: var(--dim); text-align: center; }
 
-/* Unused slots in the grid: black, inert, no label. */
-.cell.is-blank { background: #000; pointer-events: none; }
-.cell.is-blank::after { content: none; }
+/* Unused slots in the grid: a dark, inert screen in a frame. */
+.cell.is-blank { pointer-events: none; }
+.cell.is-blank .cell-screen { background: #000; }
+.cell.is-blank .cell-screen::after { content: none; }
 
 /* Empty wall */
 
@@ -177,7 +301,7 @@ html, body {
 
 @media (prefers-reduced-motion: reduce) {
   .overlay.is-open { animation: none; }
-  .cell video { transition: none; }
+  .cell-screen video { transition: none; }
   /* wall.js paints one still frame; the reveal is instant. */
   .cell-tv { transition: none; }
 }
