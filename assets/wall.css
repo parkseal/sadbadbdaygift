@@ -1,13 +1,13 @@
 :root {
-  --gutter: 3px;
+  --gutter: 10px;
   --frame: max(30px, 3vw);   /* black margin around the whole wall */
   --ink: #101215;
   --cell: #191c21;
   --edge: #2b3038;
   --text: #e9eaec;
   --dim: #9aa1ab;
-  --tv-idle: .8;             /* how much static covers a resting cell */
-  --tv-fade: .45s;           /* how long it takes to clear on hover */
+  --tv-idle: .5;             /* how much static covers a resting cell */
+  --tv-fade: .5s;           /* how long it takes to clear on hover */
 }
 
 * { box-sizing: border-box; }
@@ -51,14 +51,21 @@ html, body {
   container-type: size;
 
   /* --bz is the thickness of the left and right bezel. Everything else in
-     the frame is a fixed multiple of it, taken from the source images:
-     left/right 124px, top 95px, bottom 252px, corners 546x407 (top left),
-     475x373 (top right), 602x509 and 595x509 (bottom). */
-  --bz: 18px;
+     the frame, corners included, is a fixed multiple of it, taken from the
+     source images: left/right 124px, top 95px, bottom 252px, corners
+     546x407 (top left), 475x373 (top right), 602x509 and 595x509 (bottom).
+     So raising --bz grows the corners and the screen inset together. */
+  --bz: 27px;
 }
 
+/* Every term is 1.5x the original, so the frame is at least half again as
+   thick at any cell size, never just at the small end. The corners stay in
+   proportion because their size is derived from --bz.
+   At the 8.1cqmin figure the two corners on any edge take about two thirds
+   of that edge, so they cannot meet in the middle whatever shape the grid
+   gives a cell. */
 @supports (width: 1cqmin) {
-  .cell { --bz: clamp(9px, 5.4cqmin, 40px); }
+  .cell { --bz: clamp(13.5px, 8.1cqmin, 60px); }
 }
 
 /* --------------------------------------------------------- the picture */
