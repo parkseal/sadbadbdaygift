@@ -100,9 +100,14 @@ html, body {
 .cell-screen video {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+    object-fit: cover;
   display: block;
   transform: scale(1.001); /* hides sub-pixel edge seams */
+  
+}
+.cell-screen video#stage {
+
+    object-fit: contain;
 }
 
 .cell-screen::after {

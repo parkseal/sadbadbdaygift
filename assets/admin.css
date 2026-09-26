@@ -191,6 +191,7 @@ code { background: #e2e6ea; padding: 0 .25em; border-radius: 2px; font-size: .92
 
 /* --------------------------------------------------------- library rows */
 
+.lib-toggle { margin: -.4rem 0 .9rem; }
 .lib-row { cursor: grab; }
 .lib-row .grab { cursor: grab; }
 .lib-row.used { background: #f4f6f8; color: var(--dim); }

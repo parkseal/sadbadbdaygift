@@ -679,16 +679,29 @@
     }
 
     var playlist = current();
+    var hideUsed = $("lib-unused").checked;
+    var placed = 0;
+
+    // Two filters, one pass: the name box, and the switch that drops every
+    // file already sitting in a playlist so only the unplaced ones are left.
     var rows = library.filter(function (f) {
-      return !find || f.src.toLowerCase().indexOf(find) !== -1;
+      if (find && f.src.toLowerCase().indexOf(find) === -1) return false;
+      if (holderOf(f.src)) { placed += 1; return !hideUsed; }
+      return true;
     });
 
     note.className = "note";
     note.textContent = rows.length + " of " + library.length + " file" +
       (library.length === 1 ? "" : "s") +
+      (hideUsed && placed ? ", " + placed + " hidden as placed" : "") +
       (playlist ? ". Drag onto a playlist, or press +." : ". Select a playlist to add files.");
 
-    if (!rows.length) { list.appendChild(el("li", "empty", "Nothing matches that filter.")); return; }
+    if (!rows.length) {
+      list.appendChild(el("li", "empty", hideUsed && placed
+        ? "Every matching file is already on the wall."
+        : "Nothing matches that filter."));
+      return;
+    }
 
     rows.forEach(function (file) {
       var holder = holderOf(file.src);
@@ -746,6 +759,10 @@
   $("lib-refresh").addEventListener("click", function () { loadLibrary(false); });
   $("sz-load").addEventListener("click", function () { loadLibrary(false); });
   $("lib-find").addEventListener("input", drawLibrary);
+  $("lib-unused").addEventListener("change", function () {
+    settings({ libunused: $("lib-unused").checked ? "yes" : "no" });
+    drawLibrary();
+  });
   $("sz-forget").addEventListener("click", function () {
     settings({ skey: "" });
     $("sz-key").value = "";
@@ -944,6 +961,8 @@
     $("sz-name").value = saved.szone || "";
     $("sz-region").value = saved.sregion || "";
     $("sz-key").value = saved.skey || "";
+
+    $("lib-unused").checked = saved.libunused === "yes";
 
     thumbOn = saved.thumbon !== "no";
     thumbCors = saved.thumbcors !== "no";
