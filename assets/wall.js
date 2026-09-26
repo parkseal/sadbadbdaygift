@@ -2,7 +2,7 @@
   "use strict";
 
   var MAX_CELLS = 9;
-  var HOVER_DELAY = 3000;   // ms of steady hover before a cell wakes up
+  var HOVER_DELAY = 3000;   // ms of steady hover before a cell starts playing
   var HOVER_VOLUME = 0.12;  // quiet, not silent
 
   var grid = document.getElementById("grid");
@@ -14,7 +14,6 @@
   var previews = [];
   var queue = [];
   var index = 0;
-  var mode = "auto";
 
   // Start closed, whatever state the markup or a restored page arrived in.
   overlay.classList.remove("is-open");
@@ -61,8 +60,6 @@
         'add a playlist, and publish.</p>';
       return;
     }
-
-    mode = data.previews === "hover" ? "hover" : "auto";
 
     var playlists = (data.playlists || [])
       .filter(function (p) { return p.visible !== false; })
@@ -112,16 +109,10 @@
     video.playsInline = true;
     video.setAttribute("aria-hidden", "true");
 
-    // Metadata plus the opening frame in both modes, so no cell starts black.
-    // Hover mode still holds off on the rest of the file until the pointer
-    // rests, which is where most of the CDN bandwidth goes.
+    // Metadata plus the opening frame, so a cell shows its picture while idle
+    // without pulling the body of the file down. Nothing plays until hovered.
     video.preload = "metadata";
     video.src = firstFrame(playlist.videos[0].src);
-
-    if (mode !== "hover") {
-      video.autoplay = true;
-      video.play().catch(noop);
-    }
 
     // Bottom-right position counter, e.g. "1 of 2".
     var counter = document.createElement("p");
@@ -132,21 +123,40 @@
     mark();
 
     // Hovering arms a timer rather than acting at once, so sweeping the pointer
-    // across the wall wakes nothing. After the delay the cell plays with sound.
+    // across the wall wakes nothing. After the delay the cell plays, quietly.
     var timer = null;
+    var awake = false;
 
     function wake() {
       timer = null;
       if (overlay.classList.contains("is-open")) return;
+      awake = true;
       hush();                       // only one cell is ever audible
       video.volume = HOVER_VOLUME;
+
+      // Start muted, the one thing every browser allows, and lift the mute
+      // once playback is genuinely running. Unmuting a cold, paused element
+      // is refused outright, which is why the sound used to go missing.
+      video.muted = true;
+      var started = video.play();
+      if (started && started.then) started.then(sound, noop);
+      else sound();
+    }
+
+    function sound() {
+      if (!awake || video.paused) return;
       video.muted = false;
-      video.play().catch(function () {
-        // Browsers refuse unmuted playback without a user gesture; take the
-        // picture without the sound rather than nothing at all.
-        video.muted = true;
-        video.play().catch(noop);
-      });
+      var again = video.play();
+      if (again && again.catch) again.catch(silence);
+      // Chrome can pull the plug on an unmuted element without rejecting the
+      // promise, so check a moment later and settle for a silent picture.
+      setTimeout(function () { if (awake && video.paused) silence(); }, 300);
+    }
+
+    function silence() {
+      if (!awake) return;
+      video.muted = true;
+      video.play().catch(noop);
     }
 
     function hoverIn() {
@@ -157,8 +167,9 @@
     function hoverOut() {
       clearTimeout(timer);
       timer = null;
+      awake = false;
       video.muted = true;
-      if (mode === "hover") video.pause();
+      video.pause();
     }
 
     button.addEventListener("mouseenter", hoverIn);
@@ -262,7 +273,6 @@
     overlay.hidden = true;
     document.documentElement.style.overflow = "";
     queue = [];
-    if (mode === "auto") previews.forEach(function (v) { v.play().catch(noop); });
   }
 
   // Clicking the surround closes; clicks on the player belong to its controls.

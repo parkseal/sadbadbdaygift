@@ -5,7 +5,7 @@
   var FILE = "playlists.json";
   var STORE = "wall-admin";
 
-  var data = { mediaBase: "", previews: "auto", playlists: [] };
+  var data = { mediaBase: "", playlists: [] };
   var selected = null;
   var dirty = false;
 
@@ -37,12 +37,32 @@
     list.splice(to, 0, list.splice(from, 1)[0]);
   }
 
-  function touched() {
+  function touched(keepCaretIn) {
     dirty = true;
     $("publish-note").textContent = "Unpublished changes. They live in this browser until you publish.";
     $("publish-note").className = "note alert";
     saveLocal();
     draw();
+    if (keepCaretIn) {
+      var input = document.querySelector('.row[data-id="' + keepCaretIn + '"] .name');
+      if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+    }
+  }
+
+  // One file belongs to one playlist. Paths are compared loosely so a stray
+  // leading slash or a change of case is not read as a different video.
+  function key(src) {
+    return String(src || "").trim().replace(/^\/+/, "").toLowerCase();
+  }
+
+  function holderOf(src, ignore) {
+    var k = key(src), hit = null;
+    data.playlists.forEach(function (p) {
+      p.videos.forEach(function (v) {
+        if (!hit && v !== ignore && key(v.src) === k) hit = p;
+      });
+    });
+    return hit;
   }
 
   function arrows(canUp, canDown, onUp, onDown) {
@@ -126,18 +146,30 @@
       var onWall = playlist.visible !== false;
       if (onWall) { shown += 1; if (shown > MAX_CELLS) row.classList.add("over-cap"); }
 
+      row.dataset.id = playlist.id;
       row.appendChild(el("span", "grab", onWall && shown <= MAX_CELLS ? shown + "." : "\u2013"));
 
       var name = el("input", "name");
       name.type = "text";
       name.value = playlist.name;
       name.maxLength = 120;
-      name.addEventListener("focus", function () { selected = playlist.id; draw(); });
+      // Selecting on focus must not redraw the list: that would tear out the
+      // very input being typed into, which is what blocked renaming before.
+      name.addEventListener("focus", function () {
+        if (selected === playlist.id) return;
+        selected = playlist.id;
+        highlight();
+        drawItems();
+      });
+      name.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); name.blur(); }
+        if (e.key === "Escape") { name.value = playlist.name; name.blur(); }
+      });
       name.addEventListener("change", function () {
         var value = name.value.trim();
-        if (!value) { name.value = playlist.name; return; }
+        if (!value || value === playlist.name) { name.value = playlist.name; return; }
         playlist.name = value;
-        touched();
+        touched(playlist.id);
       });
       row.appendChild(name);
 
@@ -174,6 +206,14 @@
     });
   }
 
+  // Repaint the selected marker in place, leaving the rows and their inputs be.
+  function highlight() {
+    var rows = $("playlists").querySelectorAll(".row");
+    Array.prototype.forEach.call(rows, function (row) {
+      row.classList.toggle("selected", row.dataset.id === selected);
+    });
+  }
+
   function current() {
     return data.playlists.filter(function (p) { return p.id === selected; })[0] || null;
   }
@@ -191,17 +231,6 @@
     $("contents-hint").textContent =
       "Videos in \u201c" + playlist.name + "\u201d play in this order, then loop.";
 
-    // Suggest paths already used elsewhere so they need not be retyped.
-    var seen = {};
-    data.playlists.forEach(function (p) {
-      p.videos.forEach(function (v) { seen[v.src] = true; });
-    });
-    var dl = $("known-srcs");
-    dl.innerHTML = "";
-    Object.keys(seen).sort().forEach(function (src) {
-      dl.appendChild(new Option(src));
-    });
-
     if (!playlist.videos.length) {
       list.appendChild(el("li", "empty", "This playlist is empty, so its cell shows a placeholder."));
       return;
@@ -214,6 +243,14 @@
       var text = el("span", "pick", video.name || video.src);
       text.title = video.src;
       row.appendChild(text);
+
+      var clash = holderOf(video.src, video);
+      if (clash) {
+        var warn = el("span", "meta flag",
+          clash === playlist ? "duplicate" : "also in " + clash.name);
+        warn.title = "Each file should appear once across the whole wall.";
+        row.appendChild(warn);
+      }
 
       var open = document.createElement("a");
       open.className = "meta";
@@ -258,6 +295,13 @@
     var playlist = current();
     var src = $("v-src").value.trim();
     if (!playlist || !src) { say("Enter the file path on Bunny.", true); return; }
+    var clash = holderOf(src);
+    if (clash) {
+      say(clash === playlist
+        ? "That file is already in this playlist."
+        : "That file is already in \u201c" + clash.name + "\u201d. Each video belongs to one playlist.", true);
+      return;
+    }
     playlist.videos.push({ src: src, name: $("v-name").value.trim() || src.split("/").pop() });
     $("v-src").value = "";
     $("v-name").value = "";
@@ -270,10 +314,6 @@
 
   $("media-base").addEventListener("change", function () {
     data.mediaBase = $("media-base").value.trim();
-    touched();
-  });
-  $("previews").addEventListener("change", function () {
-    data.previews = $("previews").value;
     touched();
   });
 
@@ -289,7 +329,6 @@
   function serialise() {
     return JSON.stringify({
       mediaBase: data.mediaBase,
-      previews: data.previews,
       playlists: data.playlists
     }, null, 2) + "\n";
   }
@@ -403,7 +442,7 @@
     });
 
     $("media-base").value = data.mediaBase || "";
-    $("previews").value = data.previews === "hover" ? "hover" : "auto";
+    delete data.previews;
 
     var saved = settings();
     var guess = guessRepo();
@@ -411,6 +450,19 @@
     $("gh-repo").value = saved.repo || guess.repo;
     $("gh-branch").value = saved.branch || "main";
     $("gh-token").value = saved.token || "";
+
+    var counts = {}, repeats = 0;
+    data.playlists.forEach(function (p) {
+      p.videos.forEach(function (v) {
+        var k = key(v.src);
+        counts[k] = (counts[k] || 0) + 1;
+        if (counts[k] === 2) repeats += 1;
+      });
+    });
+    if (repeats) {
+      say(repeats + (repeats === 1 ? " file appears" : " files appear") +
+        " more than once. They are flagged in the contents pane.", true);
+    }
 
     if (dirty) {
       $("publish-note").textContent = "Unpublished changes. They live in this browser until you publish.";
