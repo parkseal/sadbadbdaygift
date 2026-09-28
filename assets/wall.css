@@ -219,29 +219,30 @@ html, body {
    moulding there is flat enough that the stretch does not read. */
 .cell-frame .t {
   top: 0;
-  left: calc(var(--bz) * 4.403);
-    right: calc(var(--bz) * 3.825);
-  height: calc(var(--bz) * 0.790);
+
+    left: calc(var(--bz) * 4.3);
+    right: calc(var(--bz) * 3.8);
+    height: calc(var(--bz) * 0.79);
   background-image: url("frame/top_middle.png");
   background-repeat: no-repeat;
   background-size: 100% 100%;
   background-position: left top;
 }
 .cell-frame .b {
-    bottom: calc(var(--bz) * 0.14);
+    bottom: calc(var(--bz) * 0.17);
     left: calc(var(--bz) * 4.855);
     right: calc(var(--bz) * 4.798);
-    height: calc(var(--bz-b) * 0.94);
+    height: calc(var(--bz-b) * 0.93);
     background-image: url(frame/bottom_middle.png);
-    background-repeat: repeat-x;
-    background-size: auto 100%;
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
     background-position: left bottom;
 }
 .cell-frame .l {
   left: 0;
-    top: calc(var(--bz) * 3.275);
-  bottom: calc(var(--bz) * 4.105);
-  width: calc(var(--bz) * 1.008);
+    top: calc(var(--bz) * 3.27);
+    bottom: calc(var(--bz) * 4.105);
+    width: calc(var(--bz) * 1.008);
   background-image: url("frame/left_middle.png");
   background-repeat: repeat-y;
   background-size: 100% auto;
