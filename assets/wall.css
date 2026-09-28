@@ -9,6 +9,7 @@
   --tv-idle: .5;             /* how much static covers a resting cell */
   --tv-fade: .5s;           /* how long it takes to clear on hover */
   --led-idle: .3;            /* how dim a resting channel number sits */
+  --fit-time: .6s;           /* how long a playing cell takes to go from fill to fit */
 
   /* The pointer is a handset. The hotspot is the emitter corner at the top
      left of the image, so it points the way an arrow would. */
@@ -126,6 +127,20 @@ html, body {
 
     object-fit: contain;
 }
+
+/* A grid set lays its picture out contained, so no part of the file is ever
+   cut off, and at rest scales it up by --fill until it covers the opening.
+   wall.js works out --fill per cell from the file's shape. When hover
+   playback starts the scale eases back and the whole frame shows, letterboxed
+   in black. object-fit itself cannot animate; a transform can. */
+.cell .cell-screen { transition: background-color var(--fit-time) ease; }
+.cell .cell-screen video {
+  object-fit: contain;
+  transform: scale(var(--fill, 1.001));
+  transition: transform var(--fit-time) ease;
+}
+.cell.is-playing .cell-screen { background: #000; }
+.cell.is-playing .cell-screen video { transform: scale(1.001); }
 
 .cell-screen::after {
   content: "";
@@ -259,37 +274,13 @@ html, body {
 
 .cell.is-broken .cell-screen { outline: 1px solid #5c3730; outline-offset: -1px; }
 
-/* Position within the playlist, bottom right of the screen. */
-.cell-index {
-  position: absolute;
-  right: .8rem;
-  bottom: .7rem;
-  z-index: 2;
-  margin: 0;
-  color: var(--dim);
-  font-size: clamp(.72rem, .95vw, .88rem);
-  font-weight: 400;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  text-shadow: 0 1px 3px rgba(0,0,0,.6);
-}
-
-/* The counter now only appears in the overlay, where the bottom strip belongs
-   to the browser's own control bar, so it is lifted clear of it. */
-.stage-set .cell-index {
-  right: 1rem;
-  bottom: 3.4rem;
-  z-index: 3;
-  font-size: .8rem;
-}
-
 .cell:focus-visible { outline: none; }
 .cell:focus-visible .cell-screen { outline: 2px solid var(--text); outline-offset: -2px; }
 
 /* Pointing at one cell dims the rest, so the wall reads as one surface
    rather than nine separate cards. */
 @media (hover: hover) and (pointer: fine) {
-  .cell-screen video { transition: opacity .2s ease; }
+  .cell .cell-screen video { transition: opacity .2s ease, transform var(--fit-time) ease; }
   .grid:hover .cell-screen video { opacity: .45; }
   .grid .cell:hover .cell-screen video,
   .grid .cell:focus-visible .cell-screen video { opacity: 1; }
@@ -338,10 +329,10 @@ html, body {
   background: rgba(8, 9, 11, .94);
   cursor: var(--remote), pointer;
 
-  /* Clear space around the set. Vertically a tenth of the window but never
-     less than 200px; horizontally the same tenth, measured against whichever
-     side is shorter so a phone is not left with a sliver of picture. */
-  --pad-y: max(10vh, 200px);
+  /* Clear space around the set. Vertically 15% top and bottom, so the set
+     can take 70% of the window height. Horizontally a tenth of whichever side
+     is shorter, so a phone in portrait keeps 80% of its width. */
+  --pad-y: 15dvh;
   --pad-x: 10vmin;
   padding: var(--pad-y) var(--pad-x);
 }
@@ -353,7 +344,8 @@ html, body {
 
 @media (prefers-reduced-motion: reduce) {
   .overlay.is-open { animation: none; }
-  .cell-screen video { transition: none; }
+  .cell .cell-screen,
+  .cell .cell-screen video { transition: none; }
   /* wall.js paints one still frame; the reveal is instant. */
   .cell-tv { transition: none; }
   .cell-led { transition: none; }
@@ -420,34 +412,63 @@ html, body {
   display: block;
 }
 
+/* Close, previous and next share one drawn-glyph button. A class selector
+   beats [hidden], so the guard is spelled out, as on the overlay. */
+.stage-btn {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--dim);
+  cursor: pointer;
+}
+.stage-btn[hidden] { display: none; }
+.stage-btn svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.stage-btn:hover { color: var(--text); }
+.stage-btn:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
 .stage-close {
   position: absolute;
   top: 1.1rem;
   right: 1.3rem;
-  background: none;
-  border: 0;
-  color: var(--dim);
-  font: inherit;
-  font-size: .85rem;
-  padding: .3rem .4rem;
-  cursor: pointer;
 }
-.stage-close:hover { color: var(--text); }
-.stage-close:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 
-.stage-label.bad { color: #d98c7a; }
-
-.stage-label {
+/* Previous, position, next: centred along the bottom of the window, below
+   the set. Only as wide as its contents, so a click either side of it still
+   lands on the surround and closes. */
+.stage-nav {
   position: absolute;
   bottom: 1.4dvh;
   left: 0;
   right: 0;
+  width: max-content;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.stage-index {
   margin: 0;
+  min-width: 8ch;
   text-align: center;
   color: var(--dim);
-  font-size: .82rem;
-  pointer-events: none;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: .85rem;
+  white-space: nowrap;
 }
+.stage-index.bad { color: #d98c7a; }
 
 /* ---------------------------------------------------------- responsive */
 

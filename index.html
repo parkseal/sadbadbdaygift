@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>channels</title>
-<link rel="stylesheet" href="assets/wall.css?v=4">
+<link rel="stylesheet" href="assets/wall.css?v=6">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
@@ -17,7 +17,6 @@
   <div id="stage-set" class="stage-set">
     <div class="cell-screen">
       <video id="stage" class="stage" playsinline controls preload="metadata"></video>
-      <p id="stage-index" class="cell-index"></p>
     </div>
     <div class="cell-frame" aria-hidden="true">
       <i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i>
@@ -25,10 +24,20 @@
     </div>
     <p id="stage-led" class="cell-led" aria-hidden="true"></p>
   </div>
-  <p id="stage-label" class="stage-label"></p>
-  <button id="stage-close" class="stage-close" type="button" aria-label="Close">Close</button>
+  <div id="stage-nav" class="stage-nav">
+    <button id="stage-prev" class="stage-btn" type="button" aria-label="Previous video">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <p id="stage-index" class="stage-index" aria-live="polite"></p>
+    <button id="stage-next" class="stage-btn" type="button" aria-label="Next video">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+  </div>
+  <button id="stage-close" class="stage-btn stage-close" type="button" aria-label="Close">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+  </button>
 </div>
 
-<script src="assets/wall.js?v=4"></script>
+<script src="assets/wall.js?v=6"></script>
 </body>
 </html>

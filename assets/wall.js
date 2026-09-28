@@ -10,8 +10,10 @@
   var stage = document.getElementById("stage");
   var stageSet = document.getElementById("stage-set");
   var stageLed = document.getElementById("stage-led");
-  var stageLabel = document.getElementById("stage-label");
   var stageIndex = document.getElementById("stage-index");
+  var stageNav = document.getElementById("stage-nav");
+  var prevBtn = document.getElementById("stage-prev");
+  var nextBtn = document.getElementById("stage-next");
   var closeBtn = document.getElementById("stage-close");
 
   var previews = [];
@@ -19,6 +21,11 @@
   var queue = [];
   var index = 0;
   var current = null;       // the playlist the overlay is showing
+
+  // Grid pictures are refitted whenever their opening changes size.
+  var fitter = window.ResizeObserver ? new ResizeObserver(function (entries) {
+    entries.forEach(function (entry) { if (entry.target._fit) entry.target._fit(); });
+  }) : null;
 
   // ------------------------------------------------------- resume position
 
@@ -273,6 +280,7 @@
     previews = [];
     gates = [];
     TV.reset();
+    if (fitter) fitter.disconnect();
 
     if (!playlists.length) {
       grid.className = "blank";
@@ -400,6 +408,11 @@
 
     function hoverIn() {
       if (timer) return;
+      // The timer is exact, but it only calls play(). With preload at
+      // "metadata" the body of the file was not requested until then, so the
+      // picture started 3s plus a CDN round trip after the pointer arrived.
+      // Buffering now means the data is waiting when the timer fires.
+      video.preload = "auto";
       timer = setTimeout(wake, HOVER_DELAY);
     }
 
@@ -409,6 +422,8 @@
       awake = false;
       video.muted = true;
       video.pause();
+      video.preload = "metadata";   // a pass across the wall should not pull every file
+      button.classList.remove("is-playing");
     }
 
     button.addEventListener("mouseenter", hoverIn);
@@ -437,6 +452,11 @@
       try { video.currentTime = 0; } catch (e) {}
       if (awake) video.play().catch(noop);
     });
+    // Once hover playback is genuinely running, the picture eases from
+    // filling the opening to fitting inside it. hoverOut eases it back.
+    video.addEventListener("playing", function () {
+      if (awake) button.classList.add("is-playing");
+    });
     previews.push(video);
 
     // Nothing on the screen names the playlist any more, so the button
@@ -445,6 +465,26 @@
 
     var screen = screenOf(button);
     screen.appendChild(video);
+
+    // The picture is laid out contained and scaled by --fill until it covers
+    // the opening: the ratio of the opening's shape to the file's, whichever
+    // way round is larger. It snaps rather than eases, so metadata arriving
+    // or the window resizing never zooms an idle cell.
+    function fit() {
+      var box = screen.getBoundingClientRect();
+      var vw = video.videoWidth, vh = video.videoHeight;
+      if (!box.width || !box.height || !vw || !vh) return;
+      var r = (box.width / box.height) / (vw / vh);
+      video.style.transition = "none";
+      // The 1.001 is the overscan that hides sub-pixel seams at the edges.
+      video.style.setProperty("--fill", (Math.max(r, 1 / r) * 1.001).toFixed(4));
+      void video.offsetWidth;       // commit the jump before easing returns
+      video.style.transition = "";
+    }
+    video.addEventListener("loadedmetadata", fit);
+    screen._fit = fit;
+    if (fitter) fitter.observe(screen);
+    else window.addEventListener("resize", fit);
     TV.attach(screen);
     button.appendChild(frame());
     button.appendChild(led(playlist.name));
@@ -528,10 +568,25 @@
   function play() {
     if (!queue.length) return close();
     stage.src = queue[index].src;
-    stageLabel.className = "stage-label";
-    stageLabel.textContent = queue.length > 1 ? queue[index].name : "";
-    stageIndex.textContent = queue.length > 1 ? (index + 1) + " of " + queue.length : "";
+    var many = queue.length > 1;
+    stageIndex.className = "stage-index";
+    stageIndex.removeAttribute("title");
+    stageIndex.textContent = many ? position() : "";
+    prevBtn.hidden = nextBtn.hidden = !many;
     stage.play().catch(noop);
+  }
+
+  function position() {
+    return (index + 1) + " of " + queue.length;
+  }
+
+  // Previous and next wrap around, and move the stored position the same way
+  // reaching the end of a file does.
+  function step(delta) {
+    if (!queue.length) return;
+    index = (index + delta + queue.length) % queue.length;
+    if (current) resumeSet(current.id, index);
+    play();
   }
 
   stage.addEventListener("loadedmetadata", function () {
@@ -540,23 +595,21 @@
     }
   });
 
+  // The file name readout is gone, so a failed file is reported in the
+  // counter instead, with the path on hover.
   stage.addEventListener("error", function () {
-    stageLabel.className = "stage-label bad";
-    stageLabel.textContent = "Could not load this file. Check the path in the admin page: " +
-      (queue[index] ? queue[index].src : "");
+    stageIndex.className = "stage-index bad";
+    stageIndex.textContent = (queue.length > 1 ? position() + ", " : "") + "could not load";
+    if (queue[index]) stageIndex.title = queue[index].src;
   });
 
-  stage.addEventListener("ended", function () {
-    index += 1;
-    if (index >= queue.length) index = 0;
-    if (current) resumeSet(current.id, index);
-    play();
-  });
+  stage.addEventListener("ended", function () { step(1); });
 
   function close() {
     if (current) resumeSet(current.id, index);
     stage.pause();
     stageIndex.textContent = "";
+    stageIndex.className = "stage-index";
     stage.removeAttribute("src");
     stage.load();
     overlay.classList.remove("is-open");
@@ -570,6 +623,9 @@
   // Clicking the surround closes; clicks on the player belong to its controls.
   overlay.addEventListener("click", close);
   stageSet.addEventListener("click", function (e) { e.stopPropagation(); });
+  stageNav.addEventListener("click", function (e) { e.stopPropagation(); });
+  prevBtn.addEventListener("click", function () { step(-1); });
+  nextBtn.addEventListener("click", function () { step(1); });
   closeBtn.addEventListener("click", function (e) { e.stopPropagation(); close(); });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && overlay.classList.contains("is-open")) close();
